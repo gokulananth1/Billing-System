@@ -101,7 +101,7 @@ public class MainFrame extends JFrame {
         JPanel left = new JPanel(new GridLayout(2, 1, 2, 2));
         left.setBackground(UITheme.COLOR_PRIMARY_DARK);
 
-        lblStoreTitle = new JLabel("\u26A1 " + s.getStoreName().toUpperCase());
+        lblStoreTitle = new JLabel(s.getStoreName().toUpperCase());
         lblStoreTitle.setFont(UITheme.FONT_TITLE);
         lblStoreTitle.setForeground(Color.WHITE);
 
@@ -140,7 +140,7 @@ public class MainFrame extends JFrame {
     public void updateForCurrentUser() {
         com.electro.model.User user = com.electro.service.AuthService.getInstance().getCurrentUser();
         if (user != null) {
-            lblUserBadge.setText("\uD83D\uDC64 " + user.getFullName() + " [" + user.getRole() + "]");
+            lblUserBadge.setText(user.getFullName() + " [" + user.getRole() + "]");
         } else {
             lblUserBadge.setText("\uD83D\uDC64 Guest");
         }
@@ -197,14 +197,14 @@ public class MainFrame extends JFrame {
 
     private void onSettingsUpdated() {
         ShopSettings s = dataStore.getSettings();
-        lblStoreTitle.setText("\u26A1 " + s.getStoreName().toUpperCase());
+        lblStoreTitle.setText(s.getStoreName().toUpperCase());
         lblStoreSubtitle.setText(s.getTagline() + "  |  GSTIN: " + s.getGstin());
         setTitle(s.getStoreName() + " - POS & Inventory Billing System");
 
         // Refresh user badge in case admin display name changed
         com.electro.model.User user = com.electro.service.AuthService.getInstance().getCurrentUser();
         if (user != null) {
-            lblUserBadge.setText("\uD83D\uDC64 " + user.getFullName() + " [" + user.getRole() + "]");
+            lblUserBadge.setText(user.getFullName() + " [" + user.getRole() + "]");
         }
 
         billingPanel.refreshProductList();

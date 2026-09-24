@@ -43,7 +43,7 @@ public class LoginDialog extends JDialog {
         header.setBackground(UITheme.COLOR_PRIMARY_DARK);
         header.setBorder(new EmptyBorder(22, 24, 22, 24));
 
-        JLabel title = new JLabel("\uD83D\uDD12 " + DataStore.getInstance().getSettings().getStoreName(), SwingConstants.CENTER);
+        JLabel title = new JLabel(DataStore.getInstance().getSettings().getStoreName(), SwingConstants.CENTER);
         title.setFont(UITheme.FONT_TITLE);
         title.setForeground(Color.WHITE);
 
@@ -166,7 +166,7 @@ public class LoginDialog extends JDialog {
             dispose();
         });
 
-        JButton btnLogin = UITheme.createButton("Sign In \u279C", UITheme.COLOR_PRIMARY, Color.WHITE);
+        JButton btnLogin = UITheme.createButton("Sign In", UITheme.COLOR_PRIMARY, Color.WHITE);
         btnLogin.setPreferredSize(new Dimension(130, 36));
         btnLogin.addActionListener(e -> performLogin());
 

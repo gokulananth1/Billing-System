@@ -261,12 +261,12 @@ public class BillingPanel extends JPanel {
         lblClassPrompt.setFont(UITheme.FONT_REGULAR_BOLD);
         lblClassPrompt.setForeground(UITheme.COLOR_PRIMARY_DARK);
 
-        rbRetail = new JRadioButton("Retail (Standard MRP)", true);
+        rbRetail = new JRadioButton("Retail", true);
         rbRetail.setFont(UITheme.FONT_REGULAR_BOLD);
         rbRetail.setOpaque(false);
         rbRetail.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        rbWholesale = new JRadioButton("Wholesale (B2B Bulk Rate)", false);
+        rbWholesale = new JRadioButton("Wholesale", false);
         rbWholesale.setFont(UITheme.FONT_REGULAR_BOLD);
         rbWholesale.setOpaque(false);
         rbWholesale.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -282,7 +282,7 @@ public class BillingPanel extends JPanel {
         classLeft.add(rbRetail);
         classLeft.add(rbWholesale);
 
-        lblClassificationBadge = new JLabel(" 🏷️ RETAIL PRICING ACTIVE ");
+        lblClassificationBadge = new JLabel("RETAIL PRICING ACTIVE ");
         lblClassificationBadge.setFont(UITheme.FONT_SMALL);
         lblClassificationBadge.setOpaque(true);
         lblClassificationBadge.setBackground(new Color(220, 252, 231));
@@ -319,10 +319,10 @@ public class BillingPanel extends JPanel {
         custAddressField = UITheme.createTextField(14);
         custAddressField.setToolTipText("Enter customer address, city, state and pincode for billing & delivery.");
 
-        fieldsGrid.add(createFieldGroup("📞 Phone Number (10 Digits - Auto Search):", custPhoneField));
-        fieldsGrid.add(createFieldGroup("👤 Customer / Company Name:", custNameField));
-        fieldsGrid.add(createFieldGroup("✉️ Email Address (Optional):", custEmailField));
-        fieldsGrid.add(createFieldGroup("📍 Billing Address (City, Pincode):", custAddressField));
+        fieldsGrid.add(createFieldGroup("Phone Number (10 Digits):", custPhoneField));
+        fieldsGrid.add(createFieldGroup("Customer / Company Name:", custNameField));
+        fieldsGrid.add(createFieldGroup("Email Address (Optional):", custEmailField));
+        fieldsGrid.add(createFieldGroup("Billing Address (City, Pincode):", custAddressField));
 
         custSection.add(fieldsGrid, BorderLayout.CENTER);
 
@@ -450,7 +450,7 @@ public class BillingPanel extends JPanel {
         figuresPanel.add(lblGrandTotal);
 
         // Checkout Button
-        JButton btnCheckout = UITheme.createButton("PROCEED TO BILL & PRINT \u279C", UITheme.COLOR_SUCCESS, Color.WHITE);
+        JButton btnCheckout = UITheme.createButton("PROCEED TO BILL & PRINT ", UITheme.COLOR_SUCCESS, Color.WHITE);
         btnCheckout.setFont(UITheme.FONT_SUBTITLE);
         btnCheckout.setPreferredSize(new Dimension(0, 46));
         btnCheckout.addActionListener(e -> executeCheckout());
@@ -501,7 +501,7 @@ public class BillingPanel extends JPanel {
         if (isWholesale) {
             if (rbWholesale != null) rbWholesale.setSelected(true);
             if (lblClassificationBadge != null) {
-                lblClassificationBadge.setText(" 📦 WHOLESALE B2B RATE ACTIVE (~8% OFF) ");
+                lblClassificationBadge.setText(" WHOLESALE B2B RATE ACTIVE (~8% OFF) ");
                 lblClassificationBadge.setBackground(new Color(238, 242, 255));
                 lblClassificationBadge.setForeground(new Color(79, 70, 229));
                 lblClassificationBadge.setBorder(new CompoundBorder(
@@ -516,7 +516,7 @@ public class BillingPanel extends JPanel {
         } else {
             if (rbRetail != null) rbRetail.setSelected(true);
             if (lblClassificationBadge != null) {
-                lblClassificationBadge.setText(" 🏷️ RETAIL PRICING ACTIVE ");
+                lblClassificationBadge.setText(" RETAIL PRICING ACTIVE ");
                 lblClassificationBadge.setBackground(new Color(220, 252, 231));
                 lblClassificationBadge.setForeground(new Color(22, 101, 52));
                 lblClassificationBadge.setBorder(new CompoundBorder(

@@ -1,5 +1,49 @@
 [
   {
+    "invoiceId": "INV-20260924-103",
+    "dateTime": "2026-09-24 19:16:35",
+    "paymentMethod": "Cash",
+    "paymentReference": "",
+    "notes": "",
+    "subtotal": 189990.0,
+    "totalDiscount": 0.0,
+    "taxableAmount": 189990.0,
+    "cgstAmount": 17099.1,
+    "sgstAmount": 17099.1,
+    "grandTotal": 224188.2,
+    "customer": {
+      "id": "GUEST",
+      "name": "Walk-in Customer",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "gstin": "",
+      "customerType": "RETAIL"
+    },
+    "items": [
+      {
+        "quantity": 1,
+        "unitPrice": 189990.0,
+        "discountPercent": 0.0,
+        "serialNumbers": ["SN-DEL-555265"],
+        "product": {
+          "id": "P1005",
+          "sku": "DEL-XPS-9530",
+          "name": "XPS 15 9530 (i7, 32GB, 1TB RTX4060)",
+          "brand": "Dell",
+          "category": "Laptops",
+          "modelNumber": "XPS-9530",
+          "costPrice": 160000.0,
+          "sellingPrice": 189990.0,
+          "wholesalePrice": 174790.8,
+          "taxRate": 18.0,
+          "warrantyMonths": 24,
+          "requiresSerial": true
+        }
+      }
+    ]
+  },
+  {
     "invoiceId": "INV-20260924-102",
     "dateTime": "2026-09-24 13:23:20",
     "paymentMethod": "UPI / QR Code",

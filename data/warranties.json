@@ -46,5 +46,17 @@
     "purchaseDate": "2026-09-24",
     "warrantyMonths": 12,
     "expiryDate": "2027-09-24"
+  },
+  {
+    "serialNumber": "SN-DEL-555265",
+    "invoiceId": "INV-20260924-103",
+    "productId": "P1005",
+    "productName": "XPS 15 9530 (i7, 32GB, 1TB RTX4060)",
+    "brand": "Dell",
+    "customerName": "Walk-in Customer",
+    "customerPhone": "",
+    "purchaseDate": "2026-09-24",
+    "warrantyMonths": 24,
+    "expiryDate": "2028-09-24"
   }
 ]

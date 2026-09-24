@@ -6,7 +6,6 @@ import com.electro.service.DataStore;
 import com.electro.service.InvoiceGenerator;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.File;
 

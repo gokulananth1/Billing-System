@@ -25,7 +25,6 @@ public class SettingsPanel extends JPanel {
     private JTextField tfEmail;
     private JTextField tfGstin;
     private JTextField tfCurrency;
-    private JTextField tfTaxRate;
     private JTextField tfInvoiceFooter;
     private JTextArea taTerms;
     private JTextField tfAdminDisplayName;
@@ -82,7 +81,7 @@ public class SettingsPanel extends JPanel {
         grid.add(new JLabel("Invoice Footer Message:")); grid.add(tfInvoiceFooter);
 
         // Admin Profile separator row
-        JLabel lblAdminSection = new JLabel("\uD83D\uDC64  Admin Profile \u2014 Display Name (shown in header):");
+        JLabel lblAdminSection = new JLabel("Admin Profile \u2014 Display Name (shown in header):");
         lblAdminSection.setFont(UITheme.FONT_REGULAR_BOLD);
         lblAdminSection.setForeground(new Color(79, 70, 229));
         grid.add(lblAdminSection); grid.add(tfAdminDisplayName);
@@ -117,12 +116,12 @@ public class SettingsPanel extends JPanel {
         btnResetSales.setToolTipText("Clear all invoices, sales history, and warranty transactions (Admin only)");
         btnResetSales.addActionListener(e -> handleResetSalesData());
 
-        JButton btnChangeAdminPass = UITheme.createButton("\uD83D\uDD11 Change Admin Password", new Color(79, 70, 229), Color.WHITE);
+        JButton btnChangeAdminPass = UITheme.createButton("Change Admin Password", new Color(79, 70, 229), Color.WHITE);
         btnChangeAdminPass.setPreferredSize(new Dimension(195, 38));
         btnChangeAdminPass.setToolTipText("Change the password for the Administrator account");
         btnChangeAdminPass.addActionListener(e -> handleChangeAdminPassword());
 
-        JButton btnManageStaff = UITheme.createButton("\uD83D\uDC65 Manage Staff Accounts", UITheme.COLOR_PRIMARY, Color.WHITE);
+        JButton btnManageStaff = UITheme.createButton("Manage Staff Accounts", UITheme.COLOR_PRIMARY, Color.WHITE);
         btnManageStaff.setPreferredSize(new Dimension(190, 38));
         btnManageStaff.setToolTipText("Add cashiers, manage user roles and passwords (Admin only)");
         btnManageStaff.addActionListener(e -> handleManageStaff());
