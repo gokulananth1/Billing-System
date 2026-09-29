@@ -1,6 +1,7 @@
 package com.electro.ui;
 
 import com.electro.model.Product;
+import com.electro.service.CsvExportService;
 import com.electro.service.DataStore;
 import com.electro.service.InventoryService;
 
@@ -12,6 +13,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +29,7 @@ public class InventoryPanel extends JPanel {
     private JTextField searchField;
     private JComboBox<String> categoryCombo;
     private JCheckBox chkLowStockOnly;
+    private JButton btnRemoveAll;
     private List<Product> currentList = new ArrayList<>();
 
     public InventoryPanel(Window parentWindow, InventoryService inventoryService) {
@@ -143,10 +146,20 @@ public class InventoryPanel extends JPanel {
         JButton btnDelete = UITheme.createButton("Delete Product", UITheme.COLOR_DANGER, Color.WHITE);
         btnDelete.addActionListener(e -> handleDelete());
 
+        JButton btnExportCsv = UITheme.createButton("Export to CSV", new Color(16, 185, 129), Color.WHITE);
+        btnExportCsv.setToolTipText("Export product inventory and stock catalog to CSV for Excel");
+        btnExportCsv.addActionListener(e -> handleExportCsv());
+
+        btnRemoveAll = UITheme.createButton("Remove All Stock Items", new Color(185, 28, 28), Color.WHITE);
+        btnRemoveAll.setToolTipText("Admin only: Permanently remove all stock items and products from the application");
+        btnRemoveAll.addActionListener(e -> handleRemoveAllStockItems());
+
         bar.add(btnAdd);
         bar.add(btnEdit);
         bar.add(btnRestock);
         bar.add(btnDelete);
+        bar.add(btnExportCsv);
+        bar.add(btnRemoveAll);
         return bar;
     }
 
@@ -220,6 +233,41 @@ public class InventoryPanel extends JPanel {
                     p.isRequiresSerial() ? "Yes (IMEI/SN)" : "No"
             });
         }
+
+        com.electro.model.User currentUser = com.electro.service.AuthService.getInstance().getCurrentUser();
+        if (btnRemoveAll != null) {
+            btnRemoveAll.setVisible(currentUser != null && currentUser.isAdmin());
+        }
+    }
+
+    private void handleRemoveAllStockItems() {
+        com.electro.model.User user = com.electro.service.AuthService.getInstance().getCurrentUser();
+        if (user == null || !user.isAdmin()) {
+            JOptionPane.showMessageDialog(this, "Access Denied: Only Administrators can remove all stock items.", "Permission Denied", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int count = inventoryService.getAllProducts().size();
+        if (count == 0) {
+            JOptionPane.showMessageDialog(this, "The inventory catalog is already empty. There are no stock items to remove.", "Inventory Empty", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to permanently remove all " + count + " stock item(s) from the application?\n"
+                + "This will delete all products from the inventory catalog and stock list.\n\n"
+                + "This action cannot be undone. Do you wish to proceed?",
+                "Confirm Remove All Stock Items",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            inventoryService.removeAllProducts();
+            refreshTable();
+            JOptionPane.showMessageDialog(this, "All stock items have been successfully removed from the application!", "Stock Removed", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private void showProductDialog(Product existing) {
@@ -227,6 +275,7 @@ public class InventoryPanel extends JPanel {
         dlg.setSize(500, 600);
         dlg.setLocationRelativeTo(parentWindow);
         dlg.setLayout(new BorderLayout(10, 10));
+        UITheme.applyAppIcon(dlg);
 
         JPanel form = new JPanel(new GridLayout(11, 2, 8, 8));
         form.setBorder(new EmptyBorder(15, 15, 15, 15));
@@ -335,5 +384,33 @@ public class InventoryPanel extends JPanel {
         dlg.add(actions, BorderLayout.SOUTH);
 
         dlg.setVisible(true);
+    }
+
+    private void handleExportCsv() {
+        if (currentList.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No products available to export.", "Empty Inventory", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        String dateStr = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd").format(java.time.LocalDate.now());
+        chooser.setSelectedFile(new File("inventory_catalog_" + dateStr + ".csv"));
+        chooser.setDialogTitle("Export Inventory Catalog to CSV");
+
+        int res = chooser.showSaveDialog(this);
+        if (res == JFileChooser.APPROVE_OPTION) {
+            File target = chooser.getSelectedFile();
+            if (!target.getName().toLowerCase().endsWith(".csv")) {
+                target = new File(target.getParentFile(), target.getName() + ".csv");
+            }
+            try {
+                CsvExportService.exportInventoryToCsv(target, currentList);
+                JOptionPane.showMessageDialog(this,
+                        "Successfully exported " + currentList.size() + " products to:\n" + target.getAbsolutePath(),
+                        "Export Successful", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "CSV Export failed: " + ex.getMessage(), "Export Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 }

@@ -35,6 +35,8 @@ public class WarrantyPanel extends JPanel {
     private JLabel lblPurchaseDate;
     private JLabel lblExpiryDate;
     private JLabel lblDaysRemaining;
+    private JButton btnCancelWarranty;
+    private WarrantyRecord activeRecord;
 
     private List<WarrantyRecord> currentRecords = new ArrayList<>();
 
@@ -136,6 +138,16 @@ public class WarrantyPanel extends JPanel {
         lookupCard.add(lblExpiryDate);
         lookupCard.add(Box.createVerticalStrut(8));
         lookupCard.add(lblDaysRemaining);
+        lookupCard.add(Box.createVerticalStrut(18));
+
+        btnCancelWarranty = UITheme.createButton("Cancel Warranty", new Color(225, 29, 72), Color.WHITE);
+        btnCancelWarranty.setToolTipText("Permanently cancel and void warranty coverage for this item");
+        btnCancelWarranty.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btnCancelWarranty.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        btnCancelWarranty.setEnabled(false);
+        btnCancelWarranty.addActionListener(e -> handleCancelWarranty());
+        lookupCard.add(btnCancelWarranty);
+
         lookupCard.add(Box.createVerticalGlue());
 
         return lookupCard;
@@ -184,8 +196,17 @@ public class WarrantyPanel extends JPanel {
             }
         });
 
+        JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
+        bottomBar.setBackground(UITheme.COLOR_PANEL_BG);
+
+        JButton btnCancelSelected = UITheme.createButton("Cancel Selected Warranty", new Color(225, 29, 72), Color.WHITE);
+        btnCancelSelected.setToolTipText("Cancel the warranty for the selected serial / IMEI row");
+        btnCancelSelected.addActionListener(e -> handleCancelWarranty());
+        bottomBar.add(btnCancelSelected);
+
         panel.add(title, BorderLayout.NORTH);
         panel.add(new JScrollPane(warrantyTable), BorderLayout.CENTER);
+        panel.add(bottomBar, BorderLayout.SOUTH);
         return panel;
     }
 
@@ -208,9 +229,23 @@ public class WarrantyPanel extends JPanel {
     }
 
     private void showRecordInCard(WarrantyRecord rec) {
-        if (rec == null) return;
+        this.activeRecord = rec;
+        if (rec == null) {
+            btnCancelWarranty.setEnabled(false);
+            return;
+        }
 
-        if (rec.isExpired()) {
+        btnCancelWarranty.setEnabled(!rec.isVoided());
+
+        if (rec.isCancelled()) {
+            lblStatusBadge.setText("WARRANTY CANCELLED");
+            lblStatusBadge.setBackground(new Color(185, 28, 28));
+            lblStatusBadge.setForeground(Color.WHITE);
+        } else if (rec.isVoided()) {
+            lblStatusBadge.setText("VOID (ITEM RETURNED)");
+            lblStatusBadge.setBackground(new Color(185, 28, 28));
+            lblStatusBadge.setForeground(Color.WHITE);
+        } else if (rec.isExpired()) {
             lblStatusBadge.setText("WARRANTY EXPIRED");
             lblStatusBadge.setBackground(UITheme.COLOR_DANGER);
             lblStatusBadge.setForeground(Color.WHITE);
@@ -226,7 +261,11 @@ public class WarrantyPanel extends JPanel {
         lblPurchaseDate.setText("<html><strong>Purchase Date:</strong> " + rec.getPurchaseDate() + "</html>");
         lblExpiryDate.setText("<html><strong>Warranty Ends:</strong> " + rec.getExpiryDate() + " (" + rec.getWarrantyMonths() + "M)</html>");
 
-        if (rec.isExpired()) {
+        if (rec.isCancelled()) {
+            lblDaysRemaining.setText("<html><strong>Validity:</strong> <span style='color:red; font-weight:bold;'>Cancelled</span></html>");
+        } else if (rec.isVoided()) {
+            lblDaysRemaining.setText("<html><strong>Validity:</strong> <span style='color:red; font-weight:bold;'>Void (Returned)</span></html>");
+        } else if (rec.isExpired()) {
             lblDaysRemaining.setText("<html><strong>Validity:</strong> <span style='color:red;'>Expired</span></html>");
         } else {
             lblDaysRemaining.setText("<html><strong>Validity:</strong> <span style='color:green; font-weight:bold;'>" + rec.getRemainingDays() + " days remaining</span></html>");
@@ -251,6 +290,17 @@ public class WarrantyPanel extends JPanel {
 
         warrantyTableModel.setRowCount(0);
         for (WarrantyRecord wr : currentRecords) {
+            String statusText;
+            if (wr.isCancelled()) {
+                statusText = "CANCELLED";
+            } else if (wr.isVoided()) {
+                statusText = "VOID (RETURNED)";
+            } else if (wr.isExpired()) {
+                statusText = "EXPIRED";
+            } else {
+                statusText = "ACTIVE (" + wr.getRemainingDays() + "d)";
+            }
+
             warrantyTableModel.addRow(new Object[]{
                     wr.getSerialNumber(),
                     wr.getBrand() + " " + wr.getProductName(),
@@ -259,8 +309,55 @@ public class WarrantyPanel extends JPanel {
                     wr.getInvoiceId(),
                     wr.getPurchaseDate(),
                     wr.getExpiryDate(),
-                    wr.isExpired() ? "EXPIRED" : ("ACTIVE (" + wr.getRemainingDays() + "d)")
+                    statusText
             });
+        }
+    }
+
+    private void handleCancelWarranty() {
+        WarrantyRecord target = activeRecord;
+        int selectedRow = warrantyTable.getSelectedRow();
+        if (selectedRow >= 0 && selectedRow < currentRecords.size()) {
+            target = currentRecords.get(selectedRow);
+        }
+
+        if (target == null) {
+            JOptionPane.showMessageDialog(this, "Please select or search for a warranty record to cancel.", "Selection Required", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        if (target.isCancelled()) {
+            JOptionPane.showMessageDialog(this, "Warranty for serial '" + target.getSerialNumber() + "' is already CANCELLED.", "Already Cancelled", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (target.isVoided()) {
+            JOptionPane.showMessageDialog(this, "Warranty for serial '" + target.getSerialNumber() + "' is already VOID (Item Returned / Refunded).", "Already Void", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to cancel the warranty coverage for this item?\n\n" +
+                "Product: " + target.getBrand() + " " + target.getProductName() + "\n" +
+                "Serial / IMEI: " + target.getSerialNumber() + "\n" +
+                "Customer: " + target.getCustomerName() + " (" + target.getCustomerPhone() + ")\n" +
+                "Invoice #: " + target.getInvoiceId() + "\n\n" +
+                "This action will permanently void all warranty service rights.\nDo you wish to proceed?",
+                "Confirm Cancel Warranty",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            boolean success = warrantyService.cancelWarranty(target.getSerialNumber());
+            if (success) {
+                refreshTable();
+                showRecordInCard(target);
+                JOptionPane.showMessageDialog(this, "Warranty for serial '" + target.getSerialNumber() + "' has been successfully CANCELLED.", "Warranty Cancelled", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to cancel warranty.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 }

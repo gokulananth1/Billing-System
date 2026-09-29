@@ -30,6 +30,7 @@ public class SerialInputDialog extends JDialog {
         getContentPane().setBackground(UITheme.COLOR_BG);
         setSize(480, 200 + (quantity * 45));
         setLocationRelativeTo(getOwner());
+        UITheme.applyAppIcon(this);
 
         // Header
         JPanel headerPanel = new JPanel(new GridLayout(2, 1, 4, 4));

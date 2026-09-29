@@ -6,6 +6,7 @@ package com.electro.model;
 public class User {
     public enum Role {
         ADMIN,
+        STORE_OWNER,
         CASHIER
     }
 
@@ -49,8 +50,20 @@ public class User {
         return role == Role.ADMIN;
     }
 
+    public boolean isStoreOwner() {
+        return role == Role.STORE_OWNER;
+    }
+
     public boolean isCashier() {
         return role == Role.CASHIER;
+    }
+
+    public boolean canAccessAnalytics() {
+        return role == Role.ADMIN || role == Role.STORE_OWNER;
+    }
+
+    public boolean canAccessSettings() {
+        return role == Role.ADMIN;
     }
 
     @Override

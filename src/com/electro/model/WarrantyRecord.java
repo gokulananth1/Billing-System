@@ -18,10 +18,13 @@ public class WarrantyRecord {
     private String purchaseDate; // YYYY-MM-DD
     private int warrantyMonths;
     private String expiryDate;   // YYYY-MM-DD
+    private String status = "ACTIVE"; // ACTIVE, EXPIRED, VOID_RETURNED
 
     public static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    public WarrantyRecord() {}
+    public WarrantyRecord() {
+        this.status = "ACTIVE";
+    }
 
     public WarrantyRecord(String serialNumber, String invoiceId, String productId,
                           String productName, String brand, String customerName,
@@ -87,7 +90,24 @@ public class WarrantyRecord {
         }
     }
 
+    public String getStatus() { return status != null ? status : "ACTIVE"; }
+    public void setStatus(String status) { this.status = status; }
+
+    public boolean isVoided() {
+        return "VOID_RETURNED".equalsIgnoreCase(status) || "CANCELLED".equalsIgnoreCase(status);
+    }
+
+    public boolean isCancelled() {
+        return "CANCELLED".equalsIgnoreCase(status);
+    }
+
     public String getStatusDescription() {
+        if ("CANCELLED".equalsIgnoreCase(status)) {
+            return "CANCELLED";
+        }
+        if ("VOID_RETURNED".equalsIgnoreCase(status)) {
+            return "VOID (Returned)";
+        }
         if (isExpired()) {
             return "EXPIRED";
         } else {

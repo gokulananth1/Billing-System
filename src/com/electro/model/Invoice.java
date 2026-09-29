@@ -22,8 +22,14 @@ public class Invoice {
     private String paymentMethod; // Cash, Card, UPI, EMI
     private String paymentReference;
     private String notes;
+    private String status = "COMPLETED"; // COMPLETED, REFUNDED
+    private double refundAmount = 0.0;
+    private String refundReason = "";
+    private String refundDateTime = "";
+    private String paymentBreakdown = ""; // For split payments (e.g., Cash: ₹10,000 | UPI: ₹15,000)
 
-    public static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    public static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss a");
+    private static final DateTimeFormatter LEGACY_24HR_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public Invoice() {
         this.items = new ArrayList<>();
@@ -47,13 +53,24 @@ public class Invoice {
         this.paymentMethod = paymentMethod;
         this.paymentReference = paymentReference;
         this.notes = notes;
+        this.status = "COMPLETED";
     }
 
     public String getInvoiceId() { return invoiceId; }
     public void setInvoiceId(String invoiceId) { this.invoiceId = invoiceId; }
 
     public String getDateTime() { return dateTime; }
-    public void setDateTime(String dateTime) { this.dateTime = dateTime; }
+    public void setDateTime(String dateTime) {
+        if (dateTime != null) {
+            String trimmed = dateTime.trim();
+            try {
+                LocalDateTime ldt = LocalDateTime.parse(trimmed, LEGACY_24HR_FORMATTER);
+                this.dateTime = ldt.format(FORMATTER);
+                return;
+            } catch (Exception ignored) {}
+        }
+        this.dateTime = dateTime;
+    }
 
     public Customer getCustomer() { return customer; }
     public void setCustomer(Customer customer) { this.customer = customer; }
@@ -99,4 +116,23 @@ public class Invoice {
         }
         return count;
     }
+
+    public String getStatus() { return status != null ? status : "COMPLETED"; }
+    public void setStatus(String status) { this.status = status; }
+
+    public boolean isRefunded() {
+        return "REFUNDED".equalsIgnoreCase(status);
+    }
+
+    public double getRefundAmount() { return refundAmount; }
+    public void setRefundAmount(double refundAmount) { this.refundAmount = refundAmount; }
+
+    public String getRefundReason() { return refundReason != null ? refundReason : ""; }
+    public void setRefundReason(String refundReason) { this.refundReason = refundReason; }
+
+    public String getRefundDateTime() { return refundDateTime != null ? refundDateTime : ""; }
+    public void setRefundDateTime(String refundDateTime) { this.refundDateTime = refundDateTime; }
+
+    public String getPaymentBreakdown() { return paymentBreakdown != null ? paymentBreakdown : ""; }
+    public void setPaymentBreakdown(String paymentBreakdown) { this.paymentBreakdown = paymentBreakdown; }
 }

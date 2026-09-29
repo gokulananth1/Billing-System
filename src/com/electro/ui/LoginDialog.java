@@ -10,6 +10,7 @@ import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.geom.Path2D;
 
 /**
  * Modern login authentication dialog for cashier and administrator sign-in.
@@ -38,12 +39,21 @@ public class LoginDialog extends JDialog {
         setLayout(new BorderLayout());
         getContentPane().setBackground(UITheme.COLOR_BG);
 
+        UITheme.applyAppIcon(this);
+
         // Header Panel
         JPanel header = new JPanel(new GridLayout(2, 1, 4, 4));
         header.setBackground(UITheme.COLOR_PRIMARY_DARK);
         header.setBorder(new EmptyBorder(22, 24, 22, 24));
 
-        JLabel title = new JLabel(DataStore.getInstance().getSettings().getStoreName(), SwingConstants.CENTER);
+        ImageIcon logoIcon = UITheme.getAppLogoIcon(32, 32);
+        JLabel title;
+        if (logoIcon != null) {
+            title = new JLabel(DataStore.getInstance().getSettings().getStoreName(), logoIcon, SwingConstants.CENTER);
+            title.setIconTextGap(10);
+        } else {
+            title = new JLabel(DataStore.getInstance().getSettings().getStoreName(), SwingConstants.CENTER);
+        }
         title.setFont(UITheme.FONT_TITLE);
         title.setForeground(Color.WHITE);
 
@@ -84,14 +94,46 @@ public class LoginDialog extends JDialog {
         lblPass.setForeground(UITheme.COLOR_TEXT_PRIMARY);
         lblPass.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        JPanel passContainer = new JPanel(new BorderLayout(0, 0));
+        passContainer.setBackground(Color.WHITE);
+        passContainer.setBorder(new CompoundBorder(
+                new LineBorder(UITheme.COLOR_BORDER, 1, true),
+                new EmptyBorder(0, 2, 0, 4)
+        ));
+        passContainer.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        passContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         tfPassword = new JPasswordField(15);
         tfPassword.setFont(UITheme.FONT_REGULAR);
-        tfPassword.setBorder(new CompoundBorder(
-                new LineBorder(UITheme.COLOR_BORDER, 1, true),
-                new EmptyBorder(6, 8, 6, 8)
-        ));
-        tfPassword.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-        tfPassword.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tfPassword.setBorder(new EmptyBorder(6, 8, 6, 8));
+        tfPassword.setBackground(Color.WHITE);
+
+        char defaultEcho = tfPassword.getEchoChar();
+
+        JButton btnToggleEye = new JButton(new EyeIcon(false));
+        btnToggleEye.setToolTipText("Show password");
+        btnToggleEye.setFocusPainted(false);
+        btnToggleEye.setBorderPainted(false);
+        btnToggleEye.setContentAreaFilled(false);
+        btnToggleEye.setOpaque(false);
+        btnToggleEye.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnToggleEye.setPreferredSize(new Dimension(32, 32));
+
+        btnToggleEye.addActionListener(e -> {
+            if (tfPassword.getEchoChar() != (char) 0) {
+                tfPassword.setEchoChar((char) 0);
+                btnToggleEye.setIcon(new EyeIcon(true));
+                btnToggleEye.setToolTipText("Hide password");
+            } else {
+                tfPassword.setEchoChar(defaultEcho);
+                btnToggleEye.setIcon(new EyeIcon(false));
+                btnToggleEye.setToolTipText("Show password");
+            }
+            tfPassword.requestFocusInWindow();
+        });
+
+        passContainer.add(tfPassword, BorderLayout.CENTER);
+        passContainer.add(btnToggleEye, BorderLayout.EAST);
 
         // Enter key listeners
         KeyAdapter enterListener = new KeyAdapter() {
@@ -120,11 +162,11 @@ public class LoginDialog extends JDialog {
         lblQuick.setFont(UITheme.FONT_SMALL);
         lblQuick.setForeground(UITheme.COLOR_TEXT_MUTED);
 
-        JButton btnFillAdmin = new JButton("Admin");
-        styleChipButton(btnFillAdmin, new Color(238, 242, 255), UITheme.COLOR_PRIMARY);
-        btnFillAdmin.addActionListener(e -> {
-            tfUsername.setText("admin");
-            tfPassword.setText("admin123");
+        JButton btnFillOwner = new JButton("Store Owner");
+        styleChipButton(btnFillOwner, new Color(243, 232, 255), new Color(126, 34, 206));
+        btnFillOwner.addActionListener(e -> {
+            tfUsername.setText("owner");
+            tfPassword.setText("owner123");
             lblError.setText(" ");
         });
 
@@ -137,7 +179,7 @@ public class LoginDialog extends JDialog {
         });
 
         demoPanel.add(lblQuick);
-        demoPanel.add(btnFillAdmin);
+        demoPanel.add(btnFillOwner);
         demoPanel.add(btnFillCashier);
 
         formCard.add(lblUser);
@@ -146,7 +188,7 @@ public class LoginDialog extends JDialog {
         formCard.add(Box.createVerticalStrut(12));
         formCard.add(lblPass);
         formCard.add(Box.createVerticalStrut(6));
-        formCard.add(tfPassword);
+        formCard.add(passContainer);
         formCard.add(Box.createVerticalStrut(8));
         formCard.add(lblError);
         formCard.add(Box.createVerticalStrut(10));
@@ -209,5 +251,47 @@ public class LoginDialog extends JDialog {
 
     public boolean isAuthenticated() {
         return authenticated;
+    }
+
+    public static class EyeIcon implements Icon {
+        private final boolean show;
+        private final int size = 18;
+
+        public EyeIcon(boolean show) {
+            this.show = show;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+
+            Color color = show ? UITheme.COLOR_PRIMARY : new Color(148, 163, 184);
+            g2.setColor(color);
+            g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+            int cx = x + size / 2;
+            int cy = y + size / 2;
+
+            Path2D p = new Path2D.Double();
+            p.moveTo(x + 2, cy);
+            p.quadTo(cx, cy - 6, x + size - 2, cy);
+            p.quadTo(cx, cy + 6, x + 2, cy);
+            g2.draw(p);
+
+            int r = 3;
+            if (show) {
+                g2.fillOval(cx - r, cy - r, r * 2, r * 2);
+            } else {
+                g2.drawOval(cx - r, cy - r, r * 2, r * 2);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(x + 3, y + size - 3, x + size - 3, y + 3);
+            }
+            g2.dispose();
+        }
+
+        @Override public int getIconWidth() { return size; }
+        @Override public int getIconHeight() { return size; }
     }
 }

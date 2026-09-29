@@ -1,12 +1,14 @@
 package com.electro.ui;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
-// import javax.swing.border.Border;
+import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
-// import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
+import java.io.File;
 
 /**
  * Modern design system and UI constants for the Electronics Billing System.
@@ -86,5 +88,36 @@ public class UITheme {
 
     public static String formatCurrency(double amount, String symbol) {
         return symbol + String.format("%,.2f", amount);
+    }
+
+    private static Image cachedAppIcon = null;
+
+    public static Image getAppIcon() {
+        if (cachedAppIcon != null) return cachedAppIcon;
+        try {
+            File f = new File("assets/app_logo.jpg");
+            if (f.exists()) {
+                cachedAppIcon = ImageIO.read(f);
+                return cachedAppIcon;
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    public static void applyAppIcon(Window window) {
+        if (window == null) return;
+        Image icon = getAppIcon();
+        if (icon != null) {
+            window.setIconImage(icon);
+        }
+    }
+
+    public static ImageIcon getAppLogoIcon(int width, int height) {
+        Image img = getAppIcon();
+        if (img != null) {
+            Image scaled = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+            return new ImageIcon(scaled);
+        }
+        return null;
     }
 }

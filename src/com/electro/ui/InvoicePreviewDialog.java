@@ -6,6 +6,7 @@ import com.electro.service.DataStore;
 import com.electro.service.InvoiceGenerator;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.File;
 
@@ -28,6 +29,7 @@ public class InvoicePreviewDialog extends JDialog {
         setSize(780, 700);
         setLocationRelativeTo(getOwner());
         setLayout(new BorderLayout(0, 0));
+        UITheme.applyAppIcon(this);
 
         // Invoice Preview in JEditorPane (HTML)
         JEditorPane editorPane = new JEditorPane();
@@ -44,6 +46,19 @@ public class InvoicePreviewDialog extends JDialog {
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 12));
         footer.setBackground(UITheme.COLOR_PANEL_BG);
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UITheme.COLOR_BORDER));
+
+        JButton btnDirectPrint = UITheme.createButton("Direct Print A4", new Color(79, 70, 229), Color.WHITE);
+        btnDirectPrint.setToolTipText("Immediately opens Windows printer dialog to print this A4 invoice");
+        btnDirectPrint.addActionListener(e -> {
+            try {
+                boolean complete = editorPane.print(null, null, true, null, null, true);
+                if (complete) {
+                    JOptionPane.showMessageDialog(this, "Invoice successfully sent to printer!", "Print Complete", JOptionPane.INFORMATION_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Printing failed: " + ex.getMessage(), "Print Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
 
         JButton btnOpenBrowser = UITheme.createButton("Open / Save PDF in Browser", new Color(13, 148, 136), Color.WHITE);
         btnOpenBrowser.setToolTipText("Opens the full A4 invoice in your browser to print or save as PDF");
@@ -64,6 +79,7 @@ public class InvoicePreviewDialog extends JDialog {
         JButton btnClose = UITheme.createButton("Close", UITheme.COLOR_PRIMARY, Color.WHITE);
         btnClose.addActionListener(e -> dispose());
 
+        footer.add(btnDirectPrint);
         footer.add(btnOpenBrowser);
         footer.add(btnThermal);
         footer.add(btnClose);

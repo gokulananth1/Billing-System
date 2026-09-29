@@ -16,6 +16,7 @@ import java.util.*;
  * Service managing staff authentication, salted SHA-256 password hashing,
  * user sessions, and role-based permissions.
  */
+
 public class AuthService {
     private static AuthService instance;
 
@@ -185,6 +186,16 @@ public class AuthService {
                 adminSalt,
                 "Gokul Admin (Developer)",
                 User.Role.ADMIN,
+                LocalDate.now().toString()
+        ));
+
+        String ownerSalt = "f1e2d3c4";
+        users.put("owner", new User(
+                "owner",
+                hashPassword("owner123", ownerSalt),
+                ownerSalt,
+                "Store Owner",
+                User.Role.STORE_OWNER,
                 LocalDate.now().toString()
         ));
 

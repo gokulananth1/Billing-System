@@ -36,12 +36,14 @@ public class ChangePasswordDialog extends JDialog {
         setLayout(new BorderLayout());
         getContentPane().setBackground(UITheme.COLOR_BG);
 
+        UITheme.applyAppIcon(this);
+
         // Header
         JPanel header = new JPanel(new GridLayout(2, 1, 2, 2));
         header.setBackground(UITheme.COLOR_PRIMARY_DARK);
         header.setBorder(new EmptyBorder(16, 20, 16, 20));
 
-        JLabel title = new JLabel("\uD83D\uDD11 Change Account Password");
+        JLabel title = new JLabel("Change Account Password");
         title.setFont(UITheme.FONT_SUBTITLE);
         title.setForeground(Color.WHITE);
 

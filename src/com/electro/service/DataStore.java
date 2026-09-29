@@ -4,6 +4,7 @@ import com.electro.model.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.time.LocalDate;
 import java.util.*;
 
 /**
@@ -62,7 +63,7 @@ public class DataStore {
         loadInvoices();
         loadWarranties();
 
-        if (products.isEmpty()) {
+        if (!Files.exists(productsFile)) {
             seedSampleProducts();
             saveProducts();
         }
@@ -178,6 +179,75 @@ public class DataStore {
         saveWarranties();
     }
 
+    public synchronized void removeAllProducts() {
+        products.clear();
+        saveProducts();
+    }
+
+    public synchronized void restoreDefaultProducts() {
+        seedSampleProducts();
+        saveProducts();
+    }
+
+    public synchronized String createBackup(String notes) throws IOException {
+        Path backupDir = Paths.get("backups");
+        if (!Files.exists(backupDir)) {
+            Files.createDirectories(backupDir);
+        }
+        String timestamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").format(java.time.LocalDateTime.now());
+        Path targetDir = backupDir.resolve("backup_" + timestamp);
+        Files.createDirectories(targetDir);
+
+        if (Files.exists(productsFile)) Files.copy(productsFile, targetDir.resolve("products.json"), StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(invoicesFile)) Files.copy(invoicesFile, targetDir.resolve("invoices.json"), StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(customersFile)) Files.copy(customersFile, targetDir.resolve("customers.json"), StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(warrantiesFile)) Files.copy(warrantiesFile, targetDir.resolve("warranties.json"), StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(settingsFile)) Files.copy(settingsFile, targetDir.resolve("settings.json"), StandardCopyOption.REPLACE_EXISTING);
+
+        Path usersFile = dataDir.resolve("users.json");
+        if (Files.exists(usersFile)) Files.copy(usersFile, targetDir.resolve("users.json"), StandardCopyOption.REPLACE_EXISTING);
+
+        String meta = "Timestamp: " + timestamp + "\nNotes: " + (notes != null ? notes : "Admin System Backup") + "\n";
+        Files.writeString(targetDir.resolve("backup_meta.txt"), meta, StandardCharsets.UTF_8);
+
+        return targetDir.toAbsolutePath().toString();
+    }
+
+    public synchronized void restoreBackup(Path backupDir) throws IOException {
+        if (!Files.exists(backupDir) || !Files.isDirectory(backupDir)) {
+            throw new IllegalArgumentException("Invalid backup directory: " + backupDir);
+        }
+
+        Path bProducts = backupDir.resolve("products.json");
+        Path bInvoices = backupDir.resolve("invoices.json");
+        Path bCustomers = backupDir.resolve("customers.json");
+        Path bWarranties = backupDir.resolve("warranties.json");
+        Path bSettings = backupDir.resolve("settings.json");
+        Path bUsers = backupDir.resolve("users.json");
+
+        if (Files.exists(bProducts)) Files.copy(bProducts, productsFile, StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(bInvoices)) Files.copy(bInvoices, invoicesFile, StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(bCustomers)) Files.copy(bCustomers, customersFile, StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(bWarranties)) Files.copy(bWarranties, warrantiesFile, StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(bSettings)) Files.copy(bSettings, settingsFile, StandardCopyOption.REPLACE_EXISTING);
+        if (Files.exists(bUsers)) Files.copy(bUsers, dataDir.resolve("users.json"), StandardCopyOption.REPLACE_EXISTING);
+
+        loadSettings();
+        loadProducts();
+        loadCustomers();
+        loadInvoices();
+        loadWarranties();
+    }
+
+    public synchronized void factoryReset() {
+        resetSalesData();
+        removeAllProducts();
+        seedSampleProducts();
+        saveProducts();
+        this.settings = new ShopSettings();
+        saveSettingsToFile();
+    }
+
     // --- PERSISTENCE LOGIC ---
 
     private void loadSettings() {
@@ -196,6 +266,12 @@ public class DataStore {
                 settings.setDefaultTaxRate(val.get("defaultTaxRate").asDouble(settings.getDefaultTaxRate()));
                 settings.setInvoiceFooter(val.get("invoiceFooter").asString(settings.getInvoiceFooter()));
                 settings.setTermsAndConditions(val.get("termsAndConditions").asString(settings.getTermsAndConditions()));
+                settings.setInvoicePrefix(val.get("invoicePrefix").asString(settings.getInvoicePrefix()));
+                settings.setEnableGstBilling(val.get("enableGstBilling").asBoolean(settings.isEnableGstBilling()));
+                settings.setWholesaleDiscountPercent(val.get("wholesaleDiscountPercent").asDouble(settings.getWholesaleDiscountPercent()));
+                settings.setLowStockThreshold(val.get("lowStockThreshold").asInt(settings.getLowStockThreshold()));
+                settings.setStrictSerialTracking(val.get("strictSerialTracking").asBoolean(settings.isStrictSerialTracking()));
+                settings.setDefaultWarrantyMonths(val.get("defaultWarrantyMonths").asInt(settings.getDefaultWarrantyMonths()));
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -215,7 +291,13 @@ public class DataStore {
             sb.append("  \"currencySymbol\": \"").append(SimpleJson.escape(settings.getCurrencySymbol())).append("\",\n");
             sb.append("  \"defaultTaxRate\": ").append(settings.getDefaultTaxRate()).append(",\n");
             sb.append("  \"invoiceFooter\": \"").append(SimpleJson.escape(settings.getInvoiceFooter())).append("\",\n");
-            sb.append("  \"termsAndConditions\": \"").append(SimpleJson.escape(settings.getTermsAndConditions())).append("\"\n");
+            sb.append("  \"termsAndConditions\": \"").append(SimpleJson.escape(settings.getTermsAndConditions())).append("\",\n");
+            sb.append("  \"invoicePrefix\": \"").append(SimpleJson.escape(settings.getInvoicePrefix())).append("\",\n");
+            sb.append("  \"enableGstBilling\": ").append(settings.isEnableGstBilling()).append(",\n");
+            sb.append("  \"wholesaleDiscountPercent\": ").append(settings.getWholesaleDiscountPercent()).append(",\n");
+            sb.append("  \"lowStockThreshold\": ").append(settings.getLowStockThreshold()).append(",\n");
+            sb.append("  \"strictSerialTracking\": ").append(settings.isStrictSerialTracking()).append(",\n");
+            sb.append("  \"defaultWarrantyMonths\": ").append(settings.getDefaultWarrantyMonths()).append("\n");
             sb.append("}\n");
             Files.writeString(settingsFile, sb.toString(), StandardCharsets.UTF_8);
         } catch (Exception e) {
@@ -399,11 +481,28 @@ public class DataStore {
                         item.get("notes").asString("")
                 );
                 inv.setDateTime(item.get("dateTime").asString(""));
+                inv.setStatus(item.get("status").asString("COMPLETED"));
+                inv.setRefundAmount(item.get("refundAmount").asDouble(0.0));
+                inv.setRefundReason(item.get("refundReason").asString(""));
+                inv.setRefundDateTime(item.get("refundDateTime").asString(""));
+                inv.setPaymentBreakdown(item.get("paymentBreakdown").asString(""));
                 invoices.add(inv);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public synchronized void saveInvoicesData() {
+        saveInvoices();
+    }
+
+    public synchronized void saveWarrantiesData() {
+        saveWarranties();
+    }
+
+    public synchronized void saveProductsData() {
+        saveProducts();
     }
 
     private void saveInvoices() {
@@ -416,7 +515,12 @@ public class DataStore {
                 sb.append("  {\n");
                 sb.append("    \"invoiceId\": \"").append(SimpleJson.escape(inv.getInvoiceId())).append("\",\n");
                 sb.append("    \"dateTime\": \"").append(SimpleJson.escape(inv.getDateTime())).append("\",\n");
+                sb.append("    \"status\": \"").append(SimpleJson.escape(inv.getStatus())).append("\",\n");
+                sb.append("    \"refundAmount\": ").append(inv.getRefundAmount()).append(",\n");
+                sb.append("    \"refundReason\": \"").append(SimpleJson.escape(inv.getRefundReason())).append("\",\n");
+                sb.append("    \"refundDateTime\": \"").append(SimpleJson.escape(inv.getRefundDateTime())).append("\",\n");
                 sb.append("    \"paymentMethod\": \"").append(SimpleJson.escape(inv.getPaymentMethod())).append("\",\n");
+                sb.append("    \"paymentBreakdown\": \"").append(SimpleJson.escape(inv.getPaymentBreakdown())).append("\",\n");
                 sb.append("    \"paymentReference\": \"").append(SimpleJson.escape(inv.getPaymentReference())).append("\",\n");
                 sb.append("    \"notes\": \"").append(SimpleJson.escape(inv.getNotes())).append("\",\n");
                 sb.append("    \"subtotal\": ").append(inv.getSubtotal()).append(",\n");
@@ -501,6 +605,7 @@ public class DataStore {
                 wr.setPurchaseDate(item.get("purchaseDate").asString(""));
                 wr.setWarrantyMonths(item.get("warrantyMonths").asInt(12));
                 wr.setExpiryDate(item.get("expiryDate").asString(""));
+                wr.setStatus(item.get("status").asString("ACTIVE"));
                 if (!wr.getSerialNumber().isEmpty()) {
                     warranties.put(wr.getSerialNumber().trim().toUpperCase(), wr);
                 }
@@ -527,7 +632,8 @@ public class DataStore {
                 sb.append("    \"customerPhone\": \"").append(SimpleJson.escape(wr.getCustomerPhone())).append("\",\n");
                 sb.append("    \"purchaseDate\": \"").append(SimpleJson.escape(wr.getPurchaseDate())).append("\",\n");
                 sb.append("    \"warrantyMonths\": ").append(wr.getWarrantyMonths()).append(",\n");
-                sb.append("    \"expiryDate\": \"").append(SimpleJson.escape(wr.getExpiryDate())).append("\"\n");
+                sb.append("    \"expiryDate\": \"").append(SimpleJson.escape(wr.getExpiryDate())).append("\",\n");
+                sb.append("    \"status\": \"").append(SimpleJson.escape(wr.getStatus())).append("\"\n");
                 sb.append("  }");
                 i++;
             }

@@ -1,12 +1,18 @@
 {
   "storeName": "BillPro",
   "tagline": "Premium Gadgets, Mobiles & Smart Appliances",
-  "address": "12.A Kadathur,Dharmapuri- 635303",
-  "phone": "+91 9080560478",
-  "email": "gokul72700@gmail.com",
+  "address": "Shop #42, Electronic City, Main Road, Tech Hub",
+  "phone": "+91 98765 43210",
+  "email": "support@voltvault.example.com",
   "gstin": "29ABCDE1234F1Z5",
   "currencySymbol": "₹",
   "defaultTaxRate": 18.0,
-  "invoiceFooter": "Thank you for shopping !!",
-  "termsAndConditions": "1. Goods once sold are covered by manufacturer warranty as stated.\n2. Physical damage, water damage, or electrical surge voids warranty.\n3. Original bill and Serial Number are mandatory for warranty claims."
+  "invoiceFooter": "Thank you for shopping at VoltVault Electronics!",
+  "termsAndConditions": "1. Goods once sold are covered by manufacturer warranty as stated.\n2. Physical damage, water damage, or electrical surge voids warranty.\n3. Original bill and Serial Number are mandatory for warranty claims.",
+  "invoicePrefix": "INV",
+  "enableGstBilling": true,
+  "wholesaleDiscountPercent": 8.0,
+  "lowStockThreshold": 4,
+  "strictSerialTracking": true,
+  "defaultWarrantyMonths": 12
 }

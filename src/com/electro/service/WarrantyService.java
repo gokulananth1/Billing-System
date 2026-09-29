@@ -47,4 +47,27 @@ public class WarrantyService {
 
         store.addWarranty(record);
     }
+
+    public void voidWarrantyForInvoice(String invoiceId) {
+        if (invoiceId == null || invoiceId.trim().isEmpty()) return;
+        boolean updated = false;
+        for (WarrantyRecord wr : store.getAllWarranties()) {
+            if (invoiceId.equalsIgnoreCase(wr.getInvoiceId())) {
+                wr.setStatus("VOID_RETURNED");
+                updated = true;
+            }
+        }
+        if (updated) {
+            store.saveWarrantiesData();
+        }
+    }
+
+    public synchronized boolean cancelWarranty(String serialNumber) {
+        if (serialNumber == null || serialNumber.trim().isEmpty()) return false;
+        WarrantyRecord wr = store.getWarrantyBySerial(serialNumber.trim().toUpperCase());
+        if (wr == null || wr.isVoided()) return false;
+        wr.setStatus("CANCELLED");
+        store.saveWarrantiesData();
+        return true;
+    }
 }

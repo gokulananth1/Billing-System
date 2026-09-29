@@ -2,6 +2,8 @@ package com.electro.ui;
 
 import com.electro.model.CartItem;
 import com.electro.model.Invoice;
+import com.electro.service.BillingService;
+import com.electro.service.CsvExportService;
 import com.electro.service.DataStore;
 import com.electro.service.InvoiceGenerator;
 
@@ -25,6 +27,7 @@ import java.util.List;
 public class InvoiceHistoryPanel extends JPanel {
     private final Window parentWindow;
     private final DataStore dataStore;
+    private final BillingService billingService;
 
     private JTable invoiceTable;
     private DefaultTableModel invoiceTableModel;
@@ -37,6 +40,7 @@ public class InvoiceHistoryPanel extends JPanel {
     public InvoiceHistoryPanel(Window parentWindow) {
         this.parentWindow = parentWindow;
         this.dataStore = DataStore.getInstance();
+        this.billingService = new BillingService();
 
         setLayout(new BorderLayout(10, 10));
         setBackground(UITheme.COLOR_BG);
@@ -77,13 +81,21 @@ public class InvoiceHistoryPanel extends JPanel {
             }
         });
 
-        JButton btnReprint = UITheme.createButton("View / Reprint Bill", UITheme.COLOR_PRIMARY, Color.WHITE);
+        JButton btnReprint = UITheme.createButton("View / Print Bill", UITheme.COLOR_PRIMARY, Color.WHITE);
         btnReprint.addActionListener(e -> viewSelectedInvoice());
 
         JButton btnOpen = UITheme.createButton("Open PDF/HTML", new Color(13, 148, 136), Color.WHITE);
         btnOpen.addActionListener(e -> openSelectedInBrowser());
 
-        JButton btnReset = UITheme.createButton("Reset Sales Data", UITheme.COLOR_DANGER, Color.WHITE);
+        JButton btnRefund = UITheme.createButton("Return / Refund", new Color(225, 29, 72), Color.WHITE);
+        btnRefund.setToolTipText("Process a customer return / refund for this invoice and restore stock");
+        btnRefund.addActionListener(e -> handleReturnRefund());
+
+        JButton btnExport = UITheme.createButton("Export to CSV", new Color(16, 185, 129), Color.WHITE);
+        btnExport.setToolTipText("Export sales invoices to CSV file for Excel / accounting");
+        btnExport.addActionListener(e -> handleExportCsv());
+
+        JButton btnReset = UITheme.createButton("Reset Sales", UITheme.COLOR_DANGER, Color.WHITE);
         btnReset.setToolTipText("Permanently clear all sales transactions and invoice history");
         btnReset.addActionListener(e -> handleResetSalesData());
 
@@ -91,6 +103,8 @@ public class InvoiceHistoryPanel extends JPanel {
         controls.add(searchField);
         controls.add(btnReprint);
         controls.add(btnOpen);
+        controls.add(btnRefund);
+        controls.add(btnExport);
         controls.add(btnReset);
 
         bar.add(title, BorderLayout.WEST);
@@ -103,7 +117,7 @@ public class InvoiceHistoryPanel extends JPanel {
         panel.setBackground(UITheme.COLOR_PANEL_BG);
         panel.setBorder(new LineBorder(UITheme.COLOR_BORDER, 1, true));
 
-        String[] cols = {"Invoice #", "Date & Time", "Customer Name", "Phone", "Units", "Payment Mode", "Tax Total", "Grand Total"};
+        String[] cols = {"Invoice #", "Date & Time", "Status", "Customer Name", "Phone", "Units", "Payment Mode", "Tax Total", "Grand Total"};
         invoiceTableModel = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int col) { return false; }
@@ -181,6 +195,7 @@ public class InvoiceHistoryPanel extends JPanel {
             invoiceTableModel.addRow(new Object[]{
                     inv.getInvoiceId(),
                     inv.getDateTime(),
+                    inv.getStatus(),
                     custName,
                     custPhone,
                     inv.getTotalUnits(),
@@ -253,8 +268,8 @@ public class InvoiceHistoryPanel extends JPanel {
 
     private void handleResetSalesData() {
         com.electro.model.User user = com.electro.service.AuthService.getInstance().getCurrentUser();
-        if (user != null && !user.isAdmin()) {
-            JOptionPane.showMessageDialog(this, "Access Denied: Only Administrators can reset sales data.", "Permission Denied", JOptionPane.WARNING_MESSAGE);
+        if (user != null && !user.isAdmin() && !user.isStoreOwner()) {
+            JOptionPane.showMessageDialog(this, "Access Denied: Only Administrators and Store Owners can reset sales data.", "Permission Denied", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -272,6 +287,89 @@ public class InvoiceHistoryPanel extends JPanel {
             dataStore.resetSalesData();
             refreshTable();
             JOptionPane.showMessageDialog(this, "All sales data and transaction history have been reset!", "Sales Data Reset", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private void handleReturnRefund() {
+        int row = invoiceTable.getSelectedRow();
+        if (row < 0 || row >= currentInvoices.size()) {
+            JOptionPane.showMessageDialog(this, "Please select an invoice from the table to process return/refund.", "Select Invoice", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        Invoice inv = currentInvoices.get(row);
+        if (inv.isRefunded()) {
+            JOptionPane.showMessageDialog(this,
+                    "This invoice is already marked as REFUNDED on " + inv.getRefundDateTime() + ".\nReason: " + inv.getRefundReason(),
+                    "Already Refunded", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JPanel form = new JPanel(new GridLayout(3, 1, 6, 8));
+        form.add(new JLabel("<html>Refund Invoice: <strong>" + inv.getInvoiceId() + "</strong> (Total Amount: " +
+                UITheme.formatCurrency(inv.getGrandTotal(), dataStore.getSettings().getCurrencySymbol()) + ")</html>"));
+
+        JTextField tfReason = UITheme.createTextField(22);
+        tfReason.setText("Customer Return / Item Defective");
+        JPanel reasonRow = new JPanel(new BorderLayout(6, 4));
+        reasonRow.add(new JLabel("Reason:"), BorderLayout.WEST);
+        reasonRow.add(tfReason, BorderLayout.CENTER);
+        form.add(reasonRow);
+
+        JCheckBox chkReturnStock = new JCheckBox("Return purchased item(s) back to inventory stock?", true);
+        form.add(chkReturnStock);
+
+        int result = JOptionPane.showConfirmDialog(
+                this,
+                form,
+                "Process Sales Return & Refund",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION) {
+            String reason = tfReason.getText().trim();
+            boolean returnStock = chkReturnStock.isSelected();
+
+            boolean success = billingService.processRefund(inv.getInvoiceId(), reason, returnStock);
+            if (success) {
+                refreshTable();
+                JOptionPane.showMessageDialog(this,
+                        "Invoice " + inv.getInvoiceId() + " has been marked as REFUNDED.\n" +
+                        (returnStock ? "All items have been restored to inventory stock.\n" : "") +
+                        "Associated warranty records have been voided.",
+                        "Refund Processed Successfully", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to process refund for invoice " + inv.getInvoiceId(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void handleExportCsv() {
+        if (currentInvoices.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No sales transactions available to export.", "Empty Report", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        String dateStr = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd").format(java.time.LocalDate.now());
+        chooser.setSelectedFile(new File("sales_report_" + dateStr + ".csv"));
+        chooser.setDialogTitle("Export Sales Invoices to CSV");
+
+        int res = chooser.showSaveDialog(this);
+        if (res == JFileChooser.APPROVE_OPTION) {
+            File target = chooser.getSelectedFile();
+            if (!target.getName().toLowerCase().endsWith(".csv")) {
+                target = new File(target.getParentFile(), target.getName() + ".csv");
+            }
+            try {
+                CsvExportService.exportInvoicesToCsv(target, currentInvoices);
+                JOptionPane.showMessageDialog(this,
+                        "Successfully exported " + currentInvoices.size() + " sales invoices to:\n" + target.getAbsolutePath(),
+                        "Export Successful", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "CSV Export failed: " + ex.getMessage(), "Export Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 }

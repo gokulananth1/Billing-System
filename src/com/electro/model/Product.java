@@ -61,6 +61,7 @@ public class Product {
     public void setCostPrice(double costPrice) { this.costPrice = costPrice; }
 
     public double getSellingPrice() { return sellingPrice; }
+    public double getRetailPrice() { return sellingPrice; }
     public void setSellingPrice(double sellingPrice) { this.sellingPrice = sellingPrice; }
 
     public double getWholesalePrice() {
@@ -82,7 +83,11 @@ public class Product {
     public void setRequiresSerial(boolean requiresSerial) { this.requiresSerial = requiresSerial; }
 
     public boolean isLowStock() {
-        return stockQuantity <= 3;
+        int threshold = 3;
+        try {
+            threshold = com.electro.service.DataStore.getInstance().getSettings().getLowStockThreshold();
+        } catch (Exception ignored) {}
+        return stockQuantity > 0 && stockQuantity <= (threshold > 0 ? threshold : 3);
     }
 
     public boolean isOutOfStock() {

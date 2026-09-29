@@ -165,6 +165,9 @@ public class BillingService {
     }
 
     public synchronized double calculateTotalTax() {
+        if (!store.getSettings().isEnableGstBilling()) {
+            return 0.0;
+        }
         double totalTax = 0;
         // Distribute overall discount proportionately across items to calculate precise GST
         double totalSub = calculateSubtotal() - calculateItemDiscounts();
@@ -198,7 +201,7 @@ public class BillingService {
             if (item.getQuantity() > p.getStockQuantity()) {
                 return "Insufficient stock for " + p.getName() + " (Available: " + p.getStockQuantity() + ")";
             }
-            if (p.isRequiresSerial()) {
+            if (p.isRequiresSerial() && store.getSettings().isStrictSerialTracking()) {
                 if (item.getSerialNumbers().size() != item.getQuantity()) {
                     return "Serial/IMEI number missing for " + p.getName() + 
                            " (Requires " + item.getQuantity() + ", provided " + item.getSerialNumbers().size() + ")";
@@ -214,15 +217,21 @@ public class BillingService {
     }
 
     public synchronized Invoice checkout(Customer customer, String paymentMethod, String paymentRef, String notes) {
+        return checkout(customer, paymentMethod, paymentRef, notes, "");
+    }
+
+    public synchronized Invoice checkout(Customer customer, String paymentMethod, String paymentRef, String notes, String paymentBreakdown) {
         String validationError = validateCartForCheckout();
         if (validationError != null) {
             throw new IllegalStateException(validationError);
         }
 
         // Generate Invoice ID
+        String prefix = store.getSettings().getInvoicePrefix();
+        if (prefix == null || prefix.trim().isEmpty()) prefix = "INV";
         String datePrefix = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDateTime.now());
         int count = store.getAllInvoices().size() + 101;
-        String invoiceId = "INV-" + datePrefix + "-" + count;
+        String invoiceId = prefix.trim().toUpperCase() + "-" + datePrefix + "-" + count;
 
         if (customer == null) {
             customer = new Customer("C-GUEST", "Walk-in Customer", "", "", "", "", customerClassification.name());
@@ -262,9 +271,39 @@ public class BillingService {
                 paymentRef,
                 notes
         );
+        if (paymentBreakdown != null && !paymentBreakdown.trim().isEmpty()) {
+            invoice.setPaymentBreakdown(paymentBreakdown.trim());
+        }
 
         store.addInvoice(invoice);
         clearCart();
         return invoice;
+    }
+
+    public synchronized boolean processRefund(String invoiceId, String reason, boolean returnStockToInventory) {
+        if (invoiceId == null || invoiceId.trim().isEmpty()) return false;
+        Invoice invoice = store.getInvoiceById(invoiceId.trim());
+        if (invoice == null || invoice.isRefunded()) {
+            return false;
+        }
+
+        invoice.setStatus("REFUNDED");
+        invoice.setRefundAmount(invoice.getGrandTotal());
+        invoice.setRefundReason(reason != null && !reason.trim().isEmpty() ? reason.trim() : "Customer Return / Refund");
+        invoice.setRefundDateTime(LocalDateTime.now().format(Invoice.FORMATTER));
+
+        if (returnStockToInventory && invoice.getItems() != null) {
+            for (CartItem item : invoice.getItems()) {
+                if (item.getProduct() != null && item.getProduct().getId() != null) {
+                    store.updateStock(item.getProduct().getId(), item.getQuantity());
+                }
+            }
+        }
+
+        // Invalidate associated warranty registrations
+        warrantyService.voidWarrantyForInvoice(invoice.getInvoiceId());
+
+        store.saveInvoicesData();
+        return true;
     }
 }

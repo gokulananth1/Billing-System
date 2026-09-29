@@ -52,6 +52,13 @@ public class InvoiceGenerator {
           .append("</style>\n</head>\n<body>\n")
           .append("<div class=\"invoice-box\">\n");
 
+        if (invoice.isRefunded()) {
+            sb.append("  <div style=\"background:#fee2e2; border:2px solid #ef4444; color:#b91c1c; padding:10px 14px; border-radius:6px; margin-bottom:16px; font-weight:bold; font-size:15px; text-align:center;\">\n")
+              .append("    *** INVOICE REFUNDED &amp; CANCELLED ***\n")
+              .append("    <div style=\"font-size:11px; font-weight:normal; margin-top:4px;\">Refund Date: <strong>").append(escapeHtml(invoice.getRefundDateTime())).append("</strong> | Reason: <strong>").append(escapeHtml(invoice.getRefundReason())).append("</strong></div>\n")
+              .append("  </div>\n");
+        }
+
         // Header
         sb.append("  <div class=\"header\">\n")
           .append("    <div>\n")
@@ -66,9 +73,15 @@ public class InvoiceGenerator {
           .append("    <div class=\"invoice-meta\">\n")
           .append("      <div style=\"color:#64748b; font-size:11px; text-transform:uppercase;\">Tax Invoice</div>\n")
           .append("      <div class=\"inv-number\">").append(escapeHtml(invoice.getInvoiceId())).append("</div>\n")
-          .append("      <div style=\"margin-top:4px;\">Date: <strong>").append(escapeHtml(invoice.getDateTime())).append("</strong></div>\n")
-          .append("      <div>Payment: <strong>").append(escapeHtml(invoice.getPaymentMethod().toUpperCase())).append("</strong></div>\n");
-        if (invoice.getPaymentReference() != null && !invoice.getPaymentReference().isEmpty()) {
+          .append("      <div style=\"margin-top:4px;\">Date: <strong>").append(escapeHtml(invoice.getDateTime())).append("</strong></div>\n");
+        if (invoice.isRefunded()) {
+            sb.append("      <div style=\"color:#dc2626; font-weight:bold;\">Status: REFUNDED</div>\n");
+        }
+        sb.append("      <div>Payment: <strong>").append(escapeHtml(invoice.getPaymentMethod().toUpperCase())).append("</strong></div>\n");
+        if (invoice.getPaymentBreakdown() != null && !invoice.getPaymentBreakdown().isEmpty()) {
+            sb.append("      <div style=\"font-size:11px; color:#475569;\">Split: ").append(escapeHtml(invoice.getPaymentBreakdown())).append("</div>\n");
+        }
+        if (invoice.getPaymentReference() != null && !invoice.getPaymentReference().isEmpty() && !invoice.getPaymentReference().equals(invoice.getPaymentBreakdown())) {
             sb.append("      <div>Ref: ").append(escapeHtml(invoice.getPaymentReference())).append("</div>\n");
         }
         sb.append("    </div>\n")
@@ -214,6 +227,14 @@ public class InvoiceGenerator {
         sb.append(center("Tel: " + settings.getPhone(), 42)).append("\n");
         sb.append(center("GSTIN: " + settings.getGstin(), 42)).append("\n");
         sb.append(dline);
+        if (invoice.isRefunded()) {
+            sb.append("******************************************\n");
+            sb.append("***      INVOICE REFUNDED / VOID       ***\n");
+            sb.append("******************************************\n");
+            sb.append("Refund Date: ").append(invoice.getRefundDateTime()).append("\n");
+            sb.append("Reason     : ").append(invoice.getRefundReason()).append("\n");
+            sb.append(dline);
+        }
         sb.append("Invoice: ").append(invoice.getInvoiceId()).append("\n");
         sb.append("Date   : ").append(invoice.getDateTime()).append("\n");
         Customer c = invoice.getCustomer();
@@ -221,6 +242,9 @@ public class InvoiceGenerator {
           .append(c != null ? c.getPhone() : "-").append(")\n");
         sb.append("Tier   : ").append(c != null && c.isWholesale() ? "WHOLESALE (B2B)" : "RETAIL").append("\n");
         sb.append("Mode   : ").append(invoice.getPaymentMethod().toUpperCase()).append("\n");
+        if (invoice.getPaymentBreakdown() != null && !invoice.getPaymentBreakdown().isEmpty()) {
+            sb.append("Split  : ").append(invoice.getPaymentBreakdown()).append("\n");
+        }
         sb.append(line);
         sb.append(String.format("%-22s %3s %6s %8s\n", "ITEM", "QTY", "RATE", "TOTAL"));
         sb.append(line);

@@ -33,6 +33,14 @@ public class InventoryService {
         store.deleteProduct(id);
     }
 
+    public void removeAllProducts() {
+        store.removeAllProducts();
+    }
+
+    public void restoreDefaultProducts() {
+        store.restoreDefaultProducts();
+    }
+
     public void restockProduct(String id, int quantityToAdd) {
         if (quantityToAdd > 0) {
             store.updateStock(id, quantityToAdd);

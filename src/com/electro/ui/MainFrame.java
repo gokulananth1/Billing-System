@@ -55,6 +55,8 @@ public class MainFrame extends JFrame {
         getContentPane().setBackground(UITheme.COLOR_BG);
         setLayout(new BorderLayout());
 
+        UITheme.applyAppIcon(this);
+
         // Header Panel
         add(createHeaderPanel(), BorderLayout.NORTH);
 
@@ -101,7 +103,13 @@ public class MainFrame extends JFrame {
         JPanel left = new JPanel(new GridLayout(2, 1, 2, 2));
         left.setBackground(UITheme.COLOR_PRIMARY_DARK);
 
-        lblStoreTitle = new JLabel(s.getStoreName().toUpperCase());
+        ImageIcon logoIcon = UITheme.getAppLogoIcon(34, 34);
+        if (logoIcon != null) {
+            lblStoreTitle = new JLabel(s.getStoreName().toUpperCase(), logoIcon, SwingConstants.LEFT);
+            lblStoreTitle.setIconTextGap(10);
+        } else {
+            lblStoreTitle = new JLabel(s.getStoreName().toUpperCase());
+        }
         lblStoreTitle.setFont(UITheme.FONT_TITLE);
         lblStoreTitle.setForeground(Color.WHITE);
 
@@ -119,7 +127,7 @@ public class MainFrame extends JFrame {
         lblClock.setFont(UITheme.FONT_REGULAR_BOLD);
         lblClock.setForeground(new Color(241, 245, 249));
 
-        lblUserBadge = new JLabel("\uD83D\uDC64 Staff");
+        lblUserBadge = new JLabel("Staff");
         lblUserBadge.setFont(UITheme.FONT_REGULAR_BOLD);
         lblUserBadge.setForeground(new Color(191, 219, 254));
 
@@ -140,9 +148,9 @@ public class MainFrame extends JFrame {
     public void updateForCurrentUser() {
         com.electro.model.User user = com.electro.service.AuthService.getInstance().getCurrentUser();
         if (user != null) {
-            lblUserBadge.setText(user.getFullName() + " [" + user.getRole() + "]");
+            lblUserBadge.setText(user.getFullName() + " [" + user.getRole().name().replace('_', ' ') + "]");
         } else {
-            lblUserBadge.setText("\uD83D\uDC64 Guest");
+            lblUserBadge.setText("Guest");
         }
 
         tabbedPane.removeAll();
@@ -151,8 +159,11 @@ public class MainFrame extends JFrame {
         tabbedPane.addTab("  Sales Invoices  ", invoiceHistoryPanel);
         tabbedPane.addTab("  Warranty & Serials  ", warrantyPanel);
 
-        if (user != null && user.isAdmin()) {
+        if (user != null && (user.isAdmin() || user.isStoreOwner())) {
             tabbedPane.addTab("  Analytics  ", analyticsPanel);
+        }
+
+        if (user != null && user.isAdmin()) {
             tabbedPane.addTab("  Shop Settings  ", settingsPanel);
         }
 
@@ -187,7 +198,7 @@ public class MainFrame extends JFrame {
     }
 
     private void startClock() {
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy  HH:mm:ss");
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy  hh:mm:ss a");
         Timer timer = new Timer(1000, e -> {
             lblClock.setText(LocalDateTime.now().format(dtf));
         });
@@ -204,7 +215,7 @@ public class MainFrame extends JFrame {
         // Refresh user badge in case admin display name changed
         com.electro.model.User user = com.electro.service.AuthService.getInstance().getCurrentUser();
         if (user != null) {
-            lblUserBadge.setText(user.getFullName() + " [" + user.getRole() + "]");
+            lblUserBadge.setText(user.getFullName() + " [" + user.getRole().name().replace('_', ' ') + "]");
         }
 
         billingPanel.refreshProductList();

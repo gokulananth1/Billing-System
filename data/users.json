@@ -8,6 +8,14 @@
     "createdAt": "2026-09-24"
   },
   {
+    "username": "owner",
+    "passwordHash": "6263e3fe9743393ce3fdc2df99fe563dcae654c217d6181b157fb33bdbe61bd3",
+    "salt": "f1e2d3c4",
+    "fullName": "Store Owner",
+    "role": "STORE_OWNER",
+    "createdAt": "2026-09-29"
+  },
+  {
     "username": "cashier",
     "passwordHash": "9817f731f67833c2c438736010e733cb063f6aa62dec7fe298247fa4fca759e9",
     "salt": "e5f6g7h8",
