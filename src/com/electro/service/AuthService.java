@@ -73,6 +73,28 @@ public class AuthService {
         return currentUser;
     }
 
+    public synchronized void setCurrentUser(User user) {
+        this.currentUser = user;
+    }
+
+    public synchronized boolean loginAsDefaultOwner() {
+        User owner = users.values().stream()
+                .filter(User::isStoreOwner)
+                .findFirst()
+                .orElse(null);
+        if (owner == null) {
+            owner = users.get("owner");
+        }
+        if (owner == null) {
+            owner = users.get("admin");
+        }
+        if (owner != null) {
+            this.currentUser = owner;
+            return true;
+        }
+        return false;
+    }
+
     public synchronized boolean isLoggedIn() {
         return currentUser != null;
     }
@@ -91,6 +113,10 @@ public class AuthService {
     public synchronized void createUser(String username, String password, String fullName, User.Role role) {
         if (username == null || username.trim().isEmpty() || password == null || password.trim().isEmpty()) {
             throw new IllegalArgumentException("Username and password cannot be empty");
+        }
+
+        if (role == User.Role.ADMIN) {
+            throw new IllegalArgumentException("Restriction: Creating user accounts with the ADMIN role is strictly forbidden.");
         }
 
         String uname = username.trim().toLowerCase();
@@ -141,15 +167,14 @@ public class AuthService {
         if (username == null) return false;
         String uname = username.trim().toLowerCase();
 
-        // Prevent deleting the currently logged-in user or the primary admin if only one admin left
+        // Prevent deleting the currently logged-in user
         if (currentUser != null && currentUser.getUsername().equalsIgnoreCase(uname)) {
             throw new IllegalStateException("Cannot delete the currently logged in user.");
         }
 
-        long adminCount = users.values().stream().filter(User::isAdmin).count();
         User target = users.get(uname);
-        if (target != null && target.isAdmin() && adminCount <= 1) {
-            throw new IllegalStateException("Cannot delete the only remaining Administrator account.");
+        if (target != null && target.isAdmin()) {
+            throw new IllegalStateException("Restriction: User accounts with the ADMIN role cannot be deleted.");
         }
 
         boolean removed = users.remove(uname) != null;

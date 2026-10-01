@@ -57,7 +57,7 @@ public class LoginDialog extends JDialog {
         title.setFont(UITheme.FONT_TITLE);
         title.setForeground(Color.WHITE);
 
-        JLabel subtitle = new JLabel("Staff & POS Terminal Authentication", SwingConstants.CENTER);
+        JLabel subtitle = new JLabel("Administrator & POS Terminal Authentication", SwingConstants.CENTER);
         subtitle.setFont(UITheme.FONT_REGULAR);
         subtitle.setForeground(new Color(203, 213, 225));
 
@@ -170,17 +170,8 @@ public class LoginDialog extends JDialog {
             lblError.setText(" ");
         });
 
-        JButton btnFillCashier = new JButton("Cashier");
-        styleChipButton(btnFillCashier, new Color(240, 253, 244), UITheme.COLOR_SUCCESS);
-        btnFillCashier.addActionListener(e -> {
-            tfUsername.setText("cashier");
-            tfPassword.setText("cashier123");
-            lblError.setText(" ");
-        });
-
         demoPanel.add(lblQuick);
         demoPanel.add(btnFillOwner);
-        demoPanel.add(btnFillCashier);
 
         formCard.add(lblUser);
         formCard.add(Box.createVerticalStrut(6));
@@ -217,7 +208,10 @@ public class LoginDialog extends JDialog {
         add(footer, BorderLayout.SOUTH);
 
         // Default focus
-        SwingUtilities.invokeLater(() -> tfUsername.requestFocusInWindow());
+        SwingUtilities.invokeLater(() -> {
+            tfUsername.selectAll();
+            tfUsername.requestFocusInWindow();
+        });
     }
 
     private void styleChipButton(JButton btn, Color bg, Color fg) {

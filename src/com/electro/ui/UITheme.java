@@ -35,6 +35,7 @@ public class UITheme {
     public static final Font FONT_REGULAR = new Font("Segoe UI", Font.PLAIN, 13);
     public static final Font FONT_REGULAR_BOLD = new Font("Segoe UI", Font.BOLD, 13);
     public static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 11);
+    public static final Font FONT_SMALL_BOLD = new Font("Segoe UI", Font.BOLD, 11);
     public static final Font FONT_BIG_NUMBER = new Font("Segoe UI", Font.BOLD, 24);
     public static final Font FONT_MONO = new Font("Consolas", Font.PLAIN, 12);
 
@@ -48,6 +49,15 @@ public class UITheme {
         btn.setOpaque(true);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setBorder(new EmptyBorder(8, 16, 8, 16));
+        return btn;
+    }
+
+    public static JButton createSecondaryButton(String text) {
+        JButton btn = createButton(text, new Color(241, 245, 249), COLOR_TEXT_PRIMARY);
+        btn.setBorder(new CompoundBorder(
+                new LineBorder(COLOR_BORDER, 1, true),
+                new EmptyBorder(4, 10, 4, 10)
+        ));
         return btn;
     }
 

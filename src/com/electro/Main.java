@@ -20,19 +20,25 @@ public class Main {
 
         // Initialize Services
         DataStore.getInstance();
-        AuthService.getInstance();
+        AuthService authService = AuthService.getInstance();
 
-        // Launch Login Dialog first
+        // Directly launch POS terminal logged in as Store Owner
         SwingUtilities.invokeLater(() -> {
-            LoginDialog loginDlg = new LoginDialog(null);
-            loginDlg.setVisible(true);
+            boolean loggedIn = authService.loginAsDefaultOwner();
+            if (!loggedIn) {
+                // Fallback to login dialog if store owner account unavailable
+                LoginDialog loginDlg = new LoginDialog(null);
+                loginDlg.setVisible(true);
 
-            if (loginDlg.isAuthenticated()) {
-                MainFrame frame = new MainFrame();
-                frame.setVisible(true);
-            } else {
-                System.exit(0);
+                if (!loginDlg.isAuthenticated()) {
+                    System.exit(0);
+                    return;
+                }
             }
+
+            MainFrame frame = new MainFrame();
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            frame.setVisible(true);
         });
     }
 }

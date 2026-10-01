@@ -17,6 +17,7 @@ public class Product {
     private int stockQuantity;
     private int warrantyMonths; // e.g. 12 for 1 year, 24 for 2 years
     private boolean requiresSerial; // Smartphones, laptops, TVs require serial/IMEI
+    private java.util.Map<String, String> customFields = new java.util.LinkedHashMap<>();
 
     public Product() {}
 
@@ -92,6 +93,34 @@ public class Product {
 
     public boolean isOutOfStock() {
         return stockQuantity <= 0;
+    }
+
+    public java.util.Map<String, String> getCustomFields() {
+        if (customFields == null) {
+            customFields = new java.util.LinkedHashMap<>();
+        }
+        return customFields;
+    }
+
+    public void setCustomFields(java.util.Map<String, String> customFields) {
+        this.customFields = customFields != null ? new java.util.LinkedHashMap<>(customFields) : new java.util.LinkedHashMap<>();
+    }
+
+    public String getCustomField(String key) {
+        if (key == null || customFields == null) return "";
+        return customFields.getOrDefault(key, "");
+    }
+
+    public void setCustomField(String key, String value) {
+        if (key == null || key.trim().isEmpty()) return;
+        if (customFields == null) {
+            customFields = new java.util.LinkedHashMap<>();
+        }
+        if (value != null && !value.trim().isEmpty()) {
+            customFields.put(key.trim(), value.trim());
+        } else {
+            customFields.remove(key.trim());
+        }
     }
 
     @Override

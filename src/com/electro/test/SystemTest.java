@@ -2,9 +2,13 @@ package com.electro.test;
 
 import com.electro.model.*;
 import com.electro.service.*;
+import com.electro.ui.ColumnConfigDialog;
 import com.electro.ui.InvoicePreviewDialog;
+import com.electro.ui.LoginDialog;
 import com.electro.ui.WarrantyPanel;
 
+import javax.swing.DefaultListModel;
+import javax.swing.JTable;
 import java.io.File;
 import java.util.List;
 
@@ -131,10 +135,15 @@ public class SystemTest {
             assert !auth.getCurrentUser().isCashier() : "Admin is not cashier";
             System.out.println("[PASS] 10a. Admin authentication and role verification successful.");
 
-            boolean cashierLogin = auth.login("cashier", "cashier123");
+            if (auth.getUserByUsername("test_cashier") == null) {
+                auth.createUser("test_cashier", "cashier123", "Test Cashier Staff", User.Role.CASHIER);
+            }
+            boolean cashierLogin = auth.login("test_cashier", "cashier123");
             assert cashierLogin : "Cashier login with correct password must succeed";
             assert auth.getCurrentUser().isCashier() : "Cashier role check must return true";
             assert !auth.getCurrentUser().isAdmin() : "Cashier is not admin";
+            auth.logout();
+            auth.deleteUser("test_cashier");
             System.out.println("[PASS] 10b. Cashier authentication and permission boundaries verified.");
 
             // 10c. Test Store Owner Authentication & Role Boundaries
@@ -167,7 +176,27 @@ public class SystemTest {
 
             auth.login("admin", "admin123");
             assert auth.deleteUser("tester_cashier") : "Admin must be able to delete staff user";
-            System.out.println("[PASS] 11b. Security verification: Invalid logins blocked & User CRUD tested.");
+
+            // Test Restriction: Cannot create users with role ADMIN
+            boolean adminCreateBlocked = false;
+            try {
+                auth.createUser("fake_admin", "pass123", "Fake Admin", User.Role.ADMIN);
+            } catch (IllegalArgumentException ex) {
+                adminCreateBlocked = true;
+            }
+            assert adminCreateBlocked : "Creating a user with ADMIN role must be strictly forbidden";
+
+            // Test Restriction: Cannot delete users with role ADMIN
+            boolean adminDeleteBlocked = false;
+            try {
+                auth.deleteUser("admin");
+            } catch (IllegalStateException ex) {
+                adminDeleteBlocked = true;
+            }
+            assert adminDeleteBlocked : "Deleting an ADMIN user account must be strictly forbidden";
+            assert auth.getUserByUsername("admin") != null : "Admin account must still exist and be protected";
+
+            System.out.println("[PASS] 11b. Security verification: Invalid logins blocked, ADMIN creation/deletion strictly restricted, & User CRUD tested.");
 
             // 12. Test Retail vs Wholesale Pricing Classification
             BillingService pricingTest = new BillingService();
@@ -297,8 +326,236 @@ public class SystemTest {
             assert new WarrantyPanel(warrantyService) != null : "WarrantyPanel with cancel button must instantiate cleanly";
             System.out.println("[PASS] 19. Warranty Cancellation verified: " + cancelSerial + " successfully cancelled.");
 
+            // 20. Test Dynamic Category Reflection in Inventory & Stock / Billing
+            String novelCategory = "Gaming Consoles " + System.currentTimeMillis();
+            Product console = new Product(
+                    "PROD-TEST-DYN-01",
+                    "SKU-CONSOLE-01",
+                    "PlayStation 5 Pro",
+                    "Sony",
+                    novelCategory,
+                    "CFI-7000",
+                    599.99,
+                    699.99,
+                    18.0,
+                    10,
+                    12,
+                    true
+            );
+            invService.saveProduct(console);
+            assert invService.getAllCategories().contains(novelCategory) : "New category must be present in inventoryService";
+
+            com.electro.ui.InventoryPanel invPanel = new com.electro.ui.InventoryPanel(null, invService);
+            invPanel.refreshTable();
+            boolean invHasNovel = false;
+            for (int i = 0; i < invPanel.getCategoryCombo().getItemCount(); i++) {
+                if (novelCategory.equals(invPanel.getCategoryCombo().getItemAt(i))) {
+                    invHasNovel = true;
+                    break;
+                }
+            }
+            assert invHasNovel : "Inventory category dropdown must dynamically include the new category";
+
+            com.electro.ui.BillingPanel billPanel = new com.electro.ui.BillingPanel(null, billingService, invService);
+            billPanel.refreshProductList();
+            boolean billHasNovel = false;
+            for (int i = 0; i < billPanel.getCategoryCombo().getItemCount(); i++) {
+                if (novelCategory.equals(billPanel.getCategoryCombo().getItemAt(i))) {
+                    billHasNovel = true;
+                    break;
+                }
+            }
+            assert billHasNovel : "Billing category dropdown must dynamically include the new category";
+
+            // Now delete the product and verify dynamic removal from category dropdowns
+            invService.deleteProduct(console.getId());
+            assert !invService.getAllCategories().contains(novelCategory) : "Deleted category must no longer exist in inventoryService";
+            invPanel.refreshTable();
+            billPanel.refreshProductList();
+
+            invHasNovel = false;
+            for (int i = 0; i < invPanel.getCategoryCombo().getItemCount(); i++) {
+                if (novelCategory.equals(invPanel.getCategoryCombo().getItemAt(i))) {
+                    invHasNovel = true;
+                    break;
+                }
+            }
+            assert !invHasNovel : "Inventory category dropdown must dynamically remove the deleted category";
+
+            billHasNovel = false;
+            for (int i = 0; i < billPanel.getCategoryCombo().getItemCount(); i++) {
+                if (novelCategory.equals(billPanel.getCategoryCombo().getItemAt(i))) {
+                    billHasNovel = true;
+                    break;
+                }
+            }
+            assert !billHasNovel : "Billing category dropdown must dynamically remove the deleted category";
+            System.out.println("[PASS] 20. Dynamic category reflection verified: '" + novelCategory + "' dynamically synced in Inventory and Billing dropdowns.");
+
+            // 21. Test Direct Shop Owner Launch and Admin Login After Logout
+            auth.logout();
+            assert !auth.isLoggedIn() : "AuthService should have no active user after logout";
+
+            boolean autoOwnerLogin = auth.loginAsDefaultOwner();
+            assert autoOwnerLogin : "Direct auto-login as Store Owner must succeed";
+            assert auth.getCurrentUser().isStoreOwner() : "Current user must be Store Owner";
+            assert "owner".equalsIgnoreCase(auth.getCurrentUser().getUsername()) : "Username must be owner";
+            assert auth.getCurrentUser().canAccessAnalytics() : "Store Owner must access Analytics";
+            assert !auth.getCurrentUser().canAccessSettings() : "Store Owner must not access Shop Settings";
+
+            // Simulate logout from MainFrame
+            auth.logout();
+            assert !auth.isLoggedIn() : "Must be logged out before Admin login";
+
+            // Verify LoginDialog instantiates cleanly without errors and Admin can authenticate
+            LoginDialog loginDlg = new LoginDialog(null);
+            assert loginDlg != null : "LoginDialog must instantiate properly";
+            loginDlg.dispose();
+
+            boolean adminLoginAfterLogout = auth.login("admin", "admin123");
+            assert adminLoginAfterLogout : "Admin login after logout must succeed";
+            assert auth.getCurrentUser().isAdmin() : "Current user must be Administrator";
+            assert auth.getCurrentUser().canAccessSettings() : "Admin must have full access to Shop Settings";
+            System.out.println("[PASS] 21. Direct Shop Owner startup login and Admin post-logout login verified.");
+
+            // 22. Test Admin Column Details Customization & CRUD Operations (ID, SKU, Brand, ProductName, etc.)
+            settings = store.getSettings();
+
+            // Read: Initial columns list
+            List<ColumnConfig> initialConfigs = settings.getColumnConfigs();
+            assert initialConfigs != null && initialConfigs.size() >= 13 : "Should have at least 13 default system columns";
+
+            // Update: Edit system column display names
+            settings.setColumnDisplayName("ID", "Item Code");
+            settings.setColumnDisplayName("SKU", "Barcode");
+            settings.setColumnDisplayName("Brand", "Manufacturer");
+            settings.setColumnDisplayName("Product Name", "Item Description");
+            settings.setColumnDisplayName("Retail", "Selling MRP");
+            settings.setColumnDisplayName("Wholesale", "B2B Price");
+
+            assert "Item Code".equals(settings.getColumnDisplayName("ID")) : "ID column name should be 'Item Code'";
+            assert "Barcode".equals(settings.getColumnDisplayName("SKU")) : "SKU column name should be 'Barcode'";
+            assert "Manufacturer".equals(settings.getColumnDisplayName("Brand")) : "Brand column name should be 'Manufacturer'";
+            assert "Item Description".equals(settings.getColumnDisplayName("Product Name")) : "Product Name column should be 'Item Description'";
+            assert "Item Description".equals(settings.getColumnDisplayName("ProductName")) : "ProductName alias should resolve to 'Item Description'";
+            assert "Selling MRP".equals(settings.getColumnDisplayName("Retail")) : "Retail column should be 'Selling MRP'";
+            assert "B2B Price".equals(settings.getColumnDisplayName("Wholesale")) : "Wholesale column should be 'B2B Price'";
+
+            // Create: Admin creates a new custom column
+            ColumnConfig customCol = new ColumnConfig("COLOR", "Color Variant", "Device physical color/finish", false, true);
+            boolean added = settings.addColumnConfig(customCol);
+            assert added : "Admin should be able to create new custom column";
+            assert settings.getColumnConfig("COLOR") != null : "Custom column 'COLOR' should be retrievable";
+            assert "Color Variant".equals(settings.getColumnConfig("COLOR").getDisplayName()) : "Custom column display name should match";
+
+            // Assign custom field on product
+            iphone.setCustomField("COLOR", "Titanium Gray");
+            assert "Titanium Gray".equals(iphone.getCustomField("COLOR")) : "Product should retain custom field value";
+            invService.saveProduct(iphone);
+
+            // Test Persistence of Settings & Custom Columns
+            store.saveSettings();
+
+            // Test Inventory and Billing Table Updates
+            invPanel.updateColumnHeaders();
+            billPanel.updateColumnHeaders();
+
+            // Test CSV Export reflecting Admin custom column headers
+            java.io.File tempColCsv = java.io.File.createTempFile("inv_cols_test_", ".csv");
+            tempColCsv.deleteOnExit();
+            CsvExportService.exportInventoryToCsv(tempColCsv, invService.getAllProducts());
+            String colCsvContent = new String(java.nio.file.Files.readAllBytes(tempColCsv.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            assert colCsvContent.contains("Item Code") : "CSV header should contain customized 'Item Code'";
+            assert colCsvContent.contains("Barcode") : "CSV header should contain customized 'Barcode'";
+            assert colCsvContent.contains("Manufacturer") : "CSV header should contain customized 'Manufacturer'";
+            assert colCsvContent.contains("Item Description") : "CSV header should contain customized 'Item Description'";
+            assert colCsvContent.contains("Selling MRP") : "CSV header should contain customized 'Selling MRP'";
+
+            // Test ColumnConfigDialog instantiates and opens cleanly
+            ColumnConfigDialog colDlg = new ColumnConfigDialog(null, null);
+            assert colDlg != null : "ColumnConfigDialog must instantiate properly";
+            colDlg.dispose();
+
+            // Update: Admin updates custom column details
+            boolean updated = settings.updateColumnConfig("COLOR", "Device Color", "Updated description", false);
+            assert updated : "Admin should be able to update column config";
+            assert "Device Color".equals(settings.getColumnConfig("COLOR").getDisplayName()) : "Display name should be updated";
+
+            // Delete: Admin deletes custom column
+            boolean deleted = settings.deleteColumnConfig("COLOR");
+            assert deleted : "Admin should be able to delete custom column";
+            assert settings.getColumnConfig("COLOR") == null : "Custom column should no longer exist after delete";
+
+            // Reset back to standard defaults
+            settings.resetColumnNamesToDefault();
+            assert "Product Name".equals(settings.getColumnDisplayName("Product Name")) : "Should revert to 'Product Name'";
+            assert "ID".equals(settings.getColumnDisplayName("ID")) : "Should revert to 'ID'";
+            store.saveSettings();
+            invPanel.updateColumnHeaders();
+            billPanel.updateColumnHeaders();
+
+            System.out.println("[PASS] 22. Admin column details full CRUD (Create custom column, Read configs, Update display names/visibility, Delete custom column, Persistence, and Dialog) verified.");
+
+            // 23. Test Billing POS Barcode Auto-Fill and Quantity Increments
+            billPanel.getBarcodeScanField().setText("IPH-15P-128");
+            boolean scanOk = billPanel.handleBarcodeScan("IPH-15P-128");
+            assert scanOk : "Barcode scanning should successfully find and add product by SKU/Barcode";
+
+            // Verify product is now in cart table
+            JTable cTable = billPanel.getCartTable();
+            assert cTable.getRowCount() >= 1 : "Cart table must contain the scanned item";
+            assert "IPH-15P-128".equals(cTable.getValueAt(0, 0)) : "First column must reflect the scanned barcode/SKU";
+            assert cTable.getValueAt(0, 1).toString().contains("iPhone 15 Pro") : "Product details must auto-fill upon barcode entry";
+            assert Integer.parseInt(cTable.getValueAt(0, 4).toString()) == 1 : "Initial quantity must be 1";
+
+            // Verify increasing quantity by modifying count
+            cTable.setValueAt(3, 0, 4); // update Qty column to 3
+            // Trigger direct update to simulate user changing count in table cell
+            billingService.updateQuantity(iphone.getId(), 3);
+            billPanel.updateCartTable();
+            assert Integer.parseInt(cTable.getValueAt(0, 4).toString()) == 3 : "Cart table must update to new quantity count (3)";
+
+            // Verify scanning another item via Barcode lookup
+            Product soundbar = store.getProductById("P1009"); // JBL Flip 6
+            if (soundbar != null) {
+                boolean scan2 = billPanel.handleBarcodeScan(soundbar.getSku());
+                assert scan2 : "Should scan and add second item by barcode";
+                assert cTable.getRowCount() == 2 : "Cart table must now have 2 rows";
+            }
+
+            // Verify entering product name directly auto-fills product details
+            boolean scanByName = billPanel.handleBarcodeScan("MacBook Air");
+            assert scanByName : "Should find and add product by entering Product Name";
+            assert cTable.getRowCount() == 3 : "Cart table must now have 3 rows";
+            assert cTable.getValueAt(2, 1).toString().contains("MacBook") : "Row 3 must contain MacBook product details";
+
+            // Clean up cart after test
+            billingService.clearCart();
+            billPanel.updateCartTable();
+            assert cTable.getRowCount() == 0 : "Cart table should be empty after clear";
+
+            System.out.println("[PASS] 23. Billing POS barcode & product name auto-fill in 1st column and dynamic quantity increment verified.");
+
+            // 24. Test Barcode/Item Scanner Product Items Popup & Search
+            billPanel.updateProductSearchList("");
+            DefaultListModel<Product> searchModel = billPanel.getProductSearchListModel();
+            assert searchModel != null : "Product search list model must be initialized";
+            assert searchModel.getSize() == store.getAllProducts().size() : "Product search list should contain all product items initially";
+
+            // Test filtering by typing 'MacBook'
+            billPanel.updateProductSearchList("MacBook");
+            assert searchModel.getSize() >= 1 : "Should find matching products for 'MacBook'";
+            assert searchModel.getElementAt(0).getName().contains("MacBook") : "First match should be MacBook";
+
+            // Test filtering by SKU 'IPH-15P'
+            billPanel.updateProductSearchList("IPH-15P");
+            assert searchModel.getSize() >= 1 : "Should find matching products for 'IPH-15P'";
+            assert searchModel.getElementAt(0).getSku().startsWith("IPH-15P") : "Match should be iPhone SKU";
+
+            System.out.println("[PASS] 24. Barcode/Item scanner product items popup and dynamic search filter verified.");
+
             System.out.println("==================================================");
-            System.out.println(" ALL 19 SYSTEM TESTS PASSED SUCCESSFULLY! [OK]");
+            System.out.println(" ALL 24 SYSTEM TESTS PASSED SUCCESSFULLY! [OK]");
             System.out.println("==================================================");
 
         } catch (Throwable t) {

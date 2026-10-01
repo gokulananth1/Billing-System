@@ -14,5 +14,101 @@
   "wholesaleDiscountPercent": 8.0,
   "lowStockThreshold": 4,
   "strictSerialTracking": true,
-  "defaultWarrantyMonths": 12
+  "defaultWarrantyMonths": 12,
+  "customColumnNames": {
+    "SKU": "Barcode"
+  },
+  "columnConfigs": [
+    {
+      "key": "ID",
+      "displayName": "ID",
+      "description": "Unique system identification code for product",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "SKU",
+      "displayName": "Barcode",
+      "description": "Stock Keeping Unit or barcode scan number",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Brand",
+      "displayName": "Brand",
+      "description": "Manufacturer or brand label",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Product Name",
+      "displayName": "Product Name",
+      "description": "Item description and commercial product title",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Category",
+      "displayName": "Category",
+      "description": "Product classification or department",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Model",
+      "displayName": "Model",
+      "description": "Hardware model or variant number",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Cost",
+      "displayName": "Cost",
+      "description": "Purchase acquisition cost (Admin only)",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Retail",
+      "displayName": "Retail",
+      "description": "Retail selling price / Maximum Retail Price (MRP)",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Wholesale",
+      "displayName": "Wholesale",
+      "description": "Wholesale bulk B2B discounted rate",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "GST",
+      "displayName": "GST",
+      "description": "Applicable Goods & Services Tax percentage",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Stock",
+      "displayName": "Stock",
+      "description": "Current available quantity in warehouse / shop",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Warranty",
+      "displayName": "Warranty",
+      "description": "Warranty coverage duration (Months)",
+      "system": true,
+      "visible": true
+    },
+    {
+      "key": "Serial Req",
+      "displayName": "Serial Req",
+      "description": "Flag indicating unique IMEI / Serial tracking",
+      "system": true,
+      "visible": true
+    }
+  ]
 }

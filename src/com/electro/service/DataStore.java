@@ -171,6 +171,10 @@ public class DataStore {
         saveSettingsToFile();
     }
 
+    public synchronized void saveSettings() {
+        saveSettingsToFile();
+    }
+
     // --- RESET OPERATIONS ---
     public synchronized void resetSalesData() {
         invoices.clear();
@@ -272,6 +276,33 @@ public class DataStore {
                 settings.setLowStockThreshold(val.get("lowStockThreshold").asInt(settings.getLowStockThreshold()));
                 settings.setStrictSerialTracking(val.get("strictSerialTracking").asBoolean(settings.isStrictSerialTracking()));
                 settings.setDefaultWarrantyMonths(val.get("defaultWarrantyMonths").asInt(settings.getDefaultWarrantyMonths()));
+
+                SimpleJson.JsonValue colObj = val.get("customColumnNames");
+                if (colObj.isObject()) {
+                    Map<String, String> colMap = new java.util.LinkedHashMap<>();
+                    for (Map.Entry<String, SimpleJson.JsonValue> entry : colObj.asObject().entrySet()) {
+                        colMap.put(entry.getKey(), entry.getValue().asString(entry.getKey()));
+                    }
+                    settings.setCustomColumnNames(colMap);
+                }
+
+                SimpleJson.JsonValue configsArr = val.get("columnConfigs");
+                if (configsArr.isArray()) {
+                    java.util.List<ColumnConfig> loadedConfigs = new java.util.ArrayList<>();
+                    for (SimpleJson.JsonValue cItem : configsArr.asArray()) {
+                        String key = cItem.get("key").asString("");
+                        String dName = cItem.get("displayName").asString(key);
+                        String desc = cItem.get("description").asString("");
+                        boolean sys = cItem.get("system").asBoolean(false);
+                        boolean vis = cItem.get("visible").asBoolean(true);
+                        if (!key.isEmpty()) {
+                            loadedConfigs.add(new ColumnConfig(key, dName, desc, sys, vis));
+                        }
+                    }
+                    if (!loadedConfigs.isEmpty()) {
+                        settings.setColumnConfigs(loadedConfigs);
+                    }
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -297,7 +328,31 @@ public class DataStore {
             sb.append("  \"wholesaleDiscountPercent\": ").append(settings.getWholesaleDiscountPercent()).append(",\n");
             sb.append("  \"lowStockThreshold\": ").append(settings.getLowStockThreshold()).append(",\n");
             sb.append("  \"strictSerialTracking\": ").append(settings.isStrictSerialTracking()).append(",\n");
-            sb.append("  \"defaultWarrantyMonths\": ").append(settings.getDefaultWarrantyMonths()).append("\n");
+            sb.append("  \"defaultWarrantyMonths\": ").append(settings.getDefaultWarrantyMonths()).append(",\n");
+            sb.append("  \"customColumnNames\": {\n");
+            Map<String, String> colMap = settings.getCustomColumnNames();
+            int cIdx = 0;
+            for (Map.Entry<String, String> entry : colMap.entrySet()) {
+                if (cIdx > 0) sb.append(",\n");
+                sb.append("    \"").append(SimpleJson.escape(entry.getKey())).append("\": \"")
+                  .append(SimpleJson.escape(entry.getValue())).append("\"");
+                cIdx++;
+            }
+            sb.append("\n  },\n");
+            sb.append("  \"columnConfigs\": [\n");
+            java.util.List<ColumnConfig> configs = settings.getColumnConfigs();
+            for (int k = 0; k < configs.size(); k++) {
+                ColumnConfig cc = configs.get(k);
+                if (k > 0) sb.append(",\n");
+                sb.append("    {\n");
+                sb.append("      \"key\": \"").append(SimpleJson.escape(cc.getKey())).append("\",\n");
+                sb.append("      \"displayName\": \"").append(SimpleJson.escape(cc.getDisplayName())).append("\",\n");
+                sb.append("      \"description\": \"").append(SimpleJson.escape(cc.getDescription())).append("\",\n");
+                sb.append("      \"system\": ").append(cc.isSystem()).append(",\n");
+                sb.append("      \"visible\": ").append(cc.isVisible()).append("\n");
+                sb.append("    }");
+            }
+            sb.append("\n  ]\n");
             sb.append("}\n");
             Files.writeString(settingsFile, sb.toString(), StandardCharsets.UTF_8);
         } catch (Exception e) {
@@ -329,6 +384,12 @@ public class DataStore {
                         item.get("requiresSerial").asBoolean(true)
                 );
                 p.setWholesalePrice(wholesale);
+                SimpleJson.JsonValue cFields = item.get("customFields");
+                if (cFields.isObject()) {
+                    for (Map.Entry<String, SimpleJson.JsonValue> cEntry : cFields.asObject().entrySet()) {
+                        p.setCustomField(cEntry.getKey(), cEntry.getValue().asString(""));
+                    }
+                }
                 products.put(p.getId(), p);
             }
         } catch (Exception e) {
@@ -356,7 +417,17 @@ public class DataStore {
                 sb.append("    \"taxRate\": ").append(p.getTaxRate()).append(",\n");
                 sb.append("    \"stockQuantity\": ").append(p.getStockQuantity()).append(",\n");
                 sb.append("    \"warrantyMonths\": ").append(p.getWarrantyMonths()).append(",\n");
-                sb.append("    \"requiresSerial\": ").append(p.isRequiresSerial()).append("\n");
+                sb.append("    \"requiresSerial\": ").append(p.isRequiresSerial()).append(",\n");
+                sb.append("    \"customFields\": {\n");
+                Map<String, String> cf = p.getCustomFields();
+                int cfIdx = 0;
+                for (Map.Entry<String, String> entry : cf.entrySet()) {
+                    if (cfIdx > 0) sb.append(",\n");
+                    sb.append("      \"").append(SimpleJson.escape(entry.getKey())).append("\": \"")
+                      .append(SimpleJson.escape(entry.getValue())).append("\"");
+                    cfIdx++;
+                }
+                sb.append("\n    }\n");
                 sb.append("  }");
                 i++;
             }
@@ -658,7 +729,7 @@ public class DataStore {
         products.put("P1009", new Product("P1009", "JBL-FLIP-6", "Flip 6 Portable Bluetooth Speaker", "JBL", "Audio", "JBLFLIP6BLK", 6800, 9999, 18.0, 10, 12, true));
 
         products.put("P1010", new Product("P1010", "SAM-TV-55Q60", "55\" QLED 4K Smart TV", "Samsung", "TV & Home", "QA55Q60DAK", 48000, 64990, 28.0, 5, 24, true));
-        products.put("P1011", new Product("P1011", "LG-OLED-65C3", "65\" OLED evo 4K Cinema TV", "LG", "TV & Home", "OLED65C3PSA", 145000, 184990, 28.0, 2, 36, true)); // Low stock test!
+        products.put("P1011", new Product("P1011", "LG-OLED-65C3", "65\" OLED evo 4K Cinema TV", "LG", "TV & Home", "OLED65C3PSA", 145000, 184990, 28.0, 2, 36, true));
 
         products.put("P1012", new Product("P1012", "ANK-GAN-65W", "735 65W GaN Fast Charger (3-Port)", "Anker", "Accessories", "A2668", 2200, 3499, 18.0, 25, 18, false));
         products.put("P1013", new Product("P1013", "APP-USB-240W", "USB-C Woven Charge Cable (2m)", "Apple", "Accessories", "MU2G3ZM/A", 1800, 2900, 18.0, 30, 12, false));

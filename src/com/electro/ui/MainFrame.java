@@ -49,8 +49,14 @@ public class MainFrame extends JFrame {
 
     private void initUI() {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1240, 800);
         setMinimumSize(new Dimension(1000, 680));
+        try {
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+            setSize(screenSize.width, screenSize.height);
+        } catch (Exception ignored) {
+            setSize(1240, 800);
+        }
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         getContentPane().setBackground(UITheme.COLOR_BG);
         setLayout(new BorderLayout());
@@ -190,6 +196,7 @@ public class MainFrame extends JFrame {
 
             if (loginDlg.isAuthenticated()) {
                 updateForCurrentUser();
+                setExtendedState(JFrame.MAXIMIZED_BOTH);
                 setVisible(true);
             } else {
                 System.exit(0);

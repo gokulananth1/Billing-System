@@ -14,13 +14,5 @@
     "fullName": "Store Owner",
     "role": "STORE_OWNER",
     "createdAt": "2026-09-29"
-  },
-  {
-    "username": "cashier",
-    "passwordHash": "9817f731f67833c2c438736010e733cb063f6aa62dec7fe298247fa4fca759e9",
-    "salt": "e5f6g7h8",
-    "fullName": "Sam Cashier (Staff)",
-    "role": "CASHIER",
-    "createdAt": "2026-09-24"
   }
 ]

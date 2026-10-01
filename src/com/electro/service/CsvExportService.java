@@ -4,6 +4,7 @@ import com.electro.model.CartItem;
 import com.electro.model.Customer;
 import com.electro.model.Invoice;
 import com.electro.model.Product;
+import com.electro.model.ShopSettings;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -108,21 +109,22 @@ public class CsvExportService {
             fos.write(0xBF);
 
             // CSV Header
+            ShopSettings s = DataStore.getInstance().getSettings();
             bw.write(String.join(",",
-                    "\"Product ID\"",
-                    "\"SKU\"",
-                    "\"Product Name\"",
-                    "\"Brand\"",
-                    "\"Category\"",
-                    "\"Model Number\"",
-                    "\"Cost Price\"",
-                    "\"Retail Price\"",
-                    "\"Wholesale Price\"",
-                    "\"GST Rate (%)\"",
-                    "\"Stock Quantity\"",
+                    escapeCsv(s.hasCustomColumnName("ID") ? s.getColumnDisplayName("ID") : "Product ID"),
+                    escapeCsv(s.getColumnDisplayName("SKU")),
+                    escapeCsv(s.hasCustomColumnName("Product Name") ? s.getColumnDisplayName("Product Name") : (s.hasCustomColumnName("ProductName") ? s.getColumnDisplayName("ProductName") : "Product Name")),
+                    escapeCsv(s.getColumnDisplayName("Brand")),
+                    escapeCsv(s.getColumnDisplayName("Category")),
+                    escapeCsv(s.hasCustomColumnName("Model") ? s.getColumnDisplayName("Model") : "Model Number"),
+                    escapeCsv(s.hasCustomColumnName("Cost") ? s.getColumnDisplayName("Cost") : "Cost Price"),
+                    escapeCsv(s.hasCustomColumnName("Retail") ? s.getColumnDisplayName("Retail") : "Retail Price"),
+                    escapeCsv(s.hasCustomColumnName("Wholesale") ? s.getColumnDisplayName("Wholesale") : "Wholesale Price"),
+                    escapeCsv(s.hasCustomColumnName("GST") ? s.getColumnDisplayName("GST") : "GST Rate (%)"),
+                    escapeCsv(s.hasCustomColumnName("Stock") ? s.getColumnDisplayName("Stock") : "Stock Quantity"),
                     "\"Low Stock Warning\"",
-                    "\"Warranty (Months)\"",
-                    "\"Requires Serial / IMEI\""
+                    escapeCsv(s.hasCustomColumnName("Warranty") ? s.getColumnDisplayName("Warranty") : "Warranty (Months)"),
+                    escapeCsv(s.hasCustomColumnName("Serial Req") ? s.getColumnDisplayName("Serial Req") : "Requires Serial / IMEI")
             ));
             bw.newLine();
 

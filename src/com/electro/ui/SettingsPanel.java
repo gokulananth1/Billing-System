@@ -217,6 +217,40 @@ public class SettingsPanel extends JPanel {
 
         panel.add(topGrid, BorderLayout.NORTH);
 
+        JPanel centerWrapper = new JPanel(new GridLayout(2, 1, 14, 14));
+        centerWrapper.setOpaque(false);
+
+        // Column Customization Card
+        JPanel colCard = new JPanel(new BorderLayout(8, 8));
+        colCard.setBackground(new Color(245, 243, 255));
+        colCard.setBorder(new CompoundBorder(
+                new LineBorder(new Color(196, 181, 253), 1, true),
+                new EmptyBorder(16, 18, 16, 18)
+        ));
+
+        JLabel colTitle = new JLabel("Catalog Table Column Display Names (Admin Choice)");
+        colTitle.setFont(UITheme.FONT_REGULAR_BOLD);
+        colTitle.setForeground(new Color(91, 33, 182));
+        colCard.add(colTitle, BorderLayout.NORTH);
+
+        JLabel colDesc = new JLabel("<html>Customize what name should display for catalog columns (ID, SKU, Brand, Product Name, Category, Retail, Wholesale, etc.).<br>The Admin decides the exact label terminology shown on tables and reports across the store.</html>");
+        colDesc.setFont(UITheme.FONT_SMALL);
+        colDesc.setForeground(UITheme.COLOR_TEXT_MUTED);
+        colCard.add(colDesc, BorderLayout.CENTER);
+
+        JPanel colBtnRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 8));
+        colBtnRow.setOpaque(false);
+        JButton btnEditCols = UITheme.createButton("Edit Column Display Names...", new Color(109, 40, 217), Color.WHITE);
+        btnEditCols.setToolTipText("Admin: Decide display names for ID, SKU, Brand, Product Name, and other columns");
+        btnEditCols.addActionListener(e -> {
+            ColumnConfigDialog dlg = new ColumnConfigDialog(SwingUtilities.getWindowAncestor(this), () -> {
+                if (onSettingsUpdated != null) onSettingsUpdated.run();
+            });
+            dlg.setVisible(true);
+        });
+        colBtnRow.add(btnEditCols);
+        colCard.add(colBtnRow, BorderLayout.SOUTH);
+
         // Catalog Reset & Maintenance Card
         JPanel card = new JPanel(new BorderLayout(10, 10));
         card.setBackground(new Color(254, 242, 242));
@@ -245,7 +279,9 @@ public class SettingsPanel extends JPanel {
         btnRow.add(btnRemoveStock);
         card.add(btnRow, BorderLayout.CENTER);
 
-        panel.add(card, BorderLayout.CENTER);
+        centerWrapper.add(colCard);
+        centerWrapper.add(card);
+        panel.add(centerWrapper, BorderLayout.CENTER);
         return panel;
     }
 

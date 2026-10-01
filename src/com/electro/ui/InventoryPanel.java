@@ -1,6 +1,9 @@
 package com.electro.ui;
 
 import com.electro.model.Product;
+import com.electro.model.ShopSettings;
+import com.electro.model.User;
+import com.electro.service.AuthService;
 import com.electro.service.CsvExportService;
 import com.electro.service.DataStore;
 import com.electro.service.InventoryService;
@@ -13,6 +16,8 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +26,11 @@ import java.util.List;
  * Inventory management panel for adding, editing, restocking, and tracking electronics items.
  */
 public class InventoryPanel extends JPanel {
+    public static final String[] INVENTORY_DEFAULT_COLUMNS = {
+            "ID", "SKU", "Brand", "Product Name", "Category", "Model",
+            "Cost", "Retail", "Wholesale", "GST", "Stock", "Warranty", "Serial Req"
+    };
+
     private final InventoryService inventoryService;
     private final Window parentWindow;
 
@@ -30,6 +40,8 @@ public class InventoryPanel extends JPanel {
     private JComboBox<String> categoryCombo;
     private JCheckBox chkLowStockOnly;
     private JButton btnRemoveAll;
+    private JButton btnCustomizeCols;
+    private boolean isUpdatingCategories = false;
     private List<Product> currentList = new ArrayList<>();
 
     public InventoryPanel(Window parentWindow, InventoryService inventoryService) {
@@ -73,11 +85,12 @@ public class InventoryPanel extends JPanel {
 
         categoryCombo = new JComboBox<>();
         categoryCombo.setFont(UITheme.FONT_REGULAR);
-        categoryCombo.addItem("All Categories");
-        for (String c : inventoryService.getAllCategories()) {
-            categoryCombo.addItem(c);
-        }
-        categoryCombo.addActionListener(e -> refreshTable());
+        updateCategoryFilter();
+        categoryCombo.addActionListener(e -> {
+            if (!isUpdatingCategories) {
+                refreshTable();
+            }
+        });
 
         chkLowStockOnly = new JCheckBox("Low Stock (<4) Only");
         chkLowStockOnly.setFont(UITheme.FONT_REGULAR_BOLD);
@@ -101,7 +114,12 @@ public class InventoryPanel extends JPanel {
         panel.setBackground(UITheme.COLOR_PANEL_BG);
         panel.setBorder(new LineBorder(UITheme.COLOR_BORDER, 1, true));
 
-        String[] cols = {"ID", "SKU", "Brand", "Product Name", "Category", "Model", "Cost", "Retail", "Wholesale", "GST", "Stock", "Warranty", "Serial Req"};
+        ShopSettings settings = DataStore.getInstance().getSettings();
+        String[] cols = new String[INVENTORY_DEFAULT_COLUMNS.length];
+        for (int i = 0; i < INVENTORY_DEFAULT_COLUMNS.length; i++) {
+            cols[i] = settings.getColumnDisplayName(INVENTORY_DEFAULT_COLUMNS[i]);
+        }
+
         tableModel = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int col) { return false; }
@@ -109,19 +127,33 @@ public class InventoryPanel extends JPanel {
 
         table = new JTable(tableModel);
         UITheme.styleTable(table);
-        table.getColumnModel().getColumn(0).setPreferredWidth(55);
+        table.getColumnModel().getColumn(0).setPreferredWidth(50);
         table.getColumnModel().getColumn(1).setPreferredWidth(90);
         table.getColumnModel().getColumn(2).setPreferredWidth(80);
         table.getColumnModel().getColumn(3).setPreferredWidth(170);
         table.getColumnModel().getColumn(4).setPreferredWidth(90);
-        table.getColumnModel().getColumn(5).setPreferredWidth(80);
+        table.getColumnModel().getColumn(5).setPreferredWidth(85);
         table.getColumnModel().getColumn(6).setPreferredWidth(70);
         table.getColumnModel().getColumn(7).setPreferredWidth(75);
         table.getColumnModel().getColumn(8).setPreferredWidth(75);
         table.getColumnModel().getColumn(9).setPreferredWidth(50);
-        table.getColumnModel().getColumn(10).setPreferredWidth(55);
+        table.getColumnModel().getColumn(10).setPreferredWidth(65);
         table.getColumnModel().getColumn(11).setPreferredWidth(70);
         table.getColumnModel().getColumn(12).setPreferredWidth(70);
+
+        table.getTableHeader().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    JPopupMenu popup = new JPopupMenu();
+                    JMenuItem miCustomize = new JMenuItem("Customize Column Display Names (Admin)...");
+                    miCustomize.setFont(UITheme.FONT_REGULAR_BOLD);
+                    miCustomize.addActionListener(ev -> handleCustomizeColumns());
+                    popup.add(miCustomize);
+                    popup.show(e.getComponent(), e.getX(), e.getY());
+                }
+            }
+        });
 
         panel.add(new JScrollPane(table), BorderLayout.CENTER);
         return panel;
@@ -146,6 +178,10 @@ public class InventoryPanel extends JPanel {
         JButton btnDelete = UITheme.createButton("Delete Product", UITheme.COLOR_DANGER, Color.WHITE);
         btnDelete.addActionListener(e -> handleDelete());
 
+        btnCustomizeCols = UITheme.createButton("Customize Columns (Admin)", new Color(79, 70, 229), Color.WHITE);
+        btnCustomizeCols.setToolTipText("Admin: Decide what name should display for ID, SKU, Brand, Product Name, etc.");
+        btnCustomizeCols.addActionListener(e -> handleCustomizeColumns());
+
         JButton btnExportCsv = UITheme.createButton("Export to CSV", new Color(16, 185, 129), Color.WHITE);
         btnExportCsv.setToolTipText("Export product inventory and stock catalog to CSV for Excel");
         btnExportCsv.addActionListener(e -> handleExportCsv());
@@ -158,6 +194,7 @@ public class InventoryPanel extends JPanel {
         bar.add(btnEdit);
         bar.add(btnRestock);
         bar.add(btnDelete);
+        bar.add(btnCustomizeCols);
         bar.add(btnExportCsv);
         bar.add(btnRemoveAll);
         return bar;
@@ -198,12 +235,60 @@ public class InventoryPanel extends JPanel {
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete '" + p.getName() + "'?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             inventoryService.deleteProduct(p.getId());
+            updateCategoryFilter();
             refreshTable();
         }
     }
 
+    public void updateCategoryFilter() {
+        if (categoryCombo == null) return;
+        String prevSelection = (String) categoryCombo.getSelectedItem();
+        List<String> latest = inventoryService.getAllCategories();
+
+        isUpdatingCategories = true;
+        categoryCombo.removeAllItems();
+        categoryCombo.addItem("All Categories");
+        boolean prevFound = false;
+        for (String c : latest) {
+            categoryCombo.addItem(c);
+            if (c.equals(prevSelection)) {
+                prevFound = true;
+            }
+        }
+
+        if (prevFound && prevSelection != null) {
+            categoryCombo.setSelectedItem(prevSelection);
+        } else {
+            categoryCombo.setSelectedIndex(0);
+        }
+        isUpdatingCategories = false;
+    }
+
+    public void syncCategoriesIfChanged() {
+        if (categoryCombo == null) return;
+        List<String> latest = inventoryService.getAllCategories();
+        boolean matches = (categoryCombo.getItemCount() == latest.size() + 1);
+        if (matches) {
+            for (int i = 0; i < latest.size(); i++) {
+                if (!latest.get(i).equals(categoryCombo.getItemAt(i + 1))) {
+                    matches = false;
+                    break;
+                }
+            }
+        }
+        if (!matches) {
+            updateCategoryFilter();
+        }
+    }
+
+    public JComboBox<String> getCategoryCombo() {
+        return categoryCombo;
+    }
+
     public void refreshTable() {
-        String q = searchField.getText();
+        syncCategoriesIfChanged();
+        updateColumnHeaders();
+        String q = searchField != null ? searchField.getText() : "";
         String cat = (String) categoryCombo.getSelectedItem();
         if ("All Categories".equals(cat)) cat = null;
 
@@ -215,29 +300,99 @@ public class InventoryPanel extends JPanel {
 
         tableModel.setRowCount(0);
         String sym = DataStore.getInstance().getSettings().getCurrencySymbol();
+        ShopSettings settings = DataStore.getInstance().getSettings();
+        List<com.electro.model.ColumnConfig> configs = settings.getColumnConfigs();
+        List<com.electro.model.ColumnConfig> customCols = new ArrayList<>();
+        for (com.electro.model.ColumnConfig c : configs) {
+            if (!c.isSystem() && c.isVisible()) {
+                customCols.add(c);
+            }
+        }
 
         for (Product p : currentList) {
-            tableModel.addRow(new Object[]{
-                    p.getId(),
-                    p.getSku(),
-                    p.getBrand(),
-                    p.getName(),
-                    p.getCategory(),
-                    p.getModelNumber(),
-                    UITheme.formatCurrency(p.getCostPrice(), sym),
-                    UITheme.formatCurrency(p.getSellingPrice(), sym),
-                    UITheme.formatCurrency(p.getWholesalePrice(), sym),
-                    (int) p.getTaxRate() + "%",
-                    p.getStockQuantity() <= 0 ? "0 (OUT)" : (p.getStockQuantity() + (p.isLowStock() ? " (LOW)" : "")),
-                    p.getWarrantyMonths() + " Mos",
-                    p.isRequiresSerial() ? "Yes (IMEI/SN)" : "No"
-            });
+            List<Object> row = new ArrayList<>();
+            row.add(p.getId());
+            row.add(p.getSku());
+            row.add(p.getBrand());
+            row.add(p.getName());
+            row.add(p.getCategory());
+            row.add(p.getModelNumber());
+            row.add(UITheme.formatCurrency(p.getCostPrice(), sym));
+            row.add(UITheme.formatCurrency(p.getSellingPrice(), sym));
+            row.add(UITheme.formatCurrency(p.getWholesalePrice(), sym));
+            row.add((int) p.getTaxRate() + "%");
+            row.add(p.getStockQuantity() <= 0 ? "0 (OUT)" : (p.getStockQuantity() + (p.isLowStock() ? " (LOW)" : "")));
+            row.add(p.getWarrantyMonths() + " Mos");
+            row.add(p.isRequiresSerial() ? "Yes (IMEI/SN)" : "No");
+
+            for (com.electro.model.ColumnConfig c : customCols) {
+                row.add(p.getCustomField(c.getKey()));
+            }
+
+            tableModel.addRow(row.toArray());
         }
 
         com.electro.model.User currentUser = com.electro.service.AuthService.getInstance().getCurrentUser();
         if (btnRemoveAll != null) {
             btnRemoveAll.setVisible(currentUser != null && currentUser.isAdmin());
         }
+        if (btnCustomizeCols != null) {
+            btnCustomizeCols.setVisible(currentUser != null && currentUser.isAdmin());
+        }
+    }
+
+    public void updateColumnHeaders() {
+        if (table == null || table.getColumnModel() == null) return;
+        ShopSettings s = DataStore.getInstance().getSettings();
+        List<com.electro.model.ColumnConfig> configs = s.getColumnConfigs();
+        List<com.electro.model.ColumnConfig> customCols = new ArrayList<>();
+        for (com.electro.model.ColumnConfig c : configs) {
+            if (!c.isSystem() && c.isVisible()) {
+                customCols.add(c);
+            }
+        }
+
+        int totalExpectedCols = INVENTORY_DEFAULT_COLUMNS.length + customCols.size();
+        if (tableModel.getColumnCount() != totalExpectedCols) {
+            Object[] headers = new Object[totalExpectedCols];
+            for (int i = 0; i < INVENTORY_DEFAULT_COLUMNS.length; i++) {
+                headers[i] = s.getColumnDisplayName(INVENTORY_DEFAULT_COLUMNS[i]);
+            }
+            for (int i = 0; i < customCols.size(); i++) {
+                headers[INVENTORY_DEFAULT_COLUMNS.length + i] = customCols.get(i).getDisplayName();
+            }
+            tableModel.setColumnIdentifiers(headers);
+        } else {
+            for (int i = 0; i < INVENTORY_DEFAULT_COLUMNS.length; i++) {
+                String defaultCol = INVENTORY_DEFAULT_COLUMNS[i];
+                String displayCol = s.getColumnDisplayName(defaultCol);
+                table.getColumnModel().getColumn(i).setHeaderValue(displayCol);
+            }
+            for (int i = 0; i < customCols.size(); i++) {
+                table.getColumnModel().getColumn(INVENTORY_DEFAULT_COLUMNS.length + i).setHeaderValue(customCols.get(i).getDisplayName());
+            }
+        }
+
+        if (table.getTableHeader() != null) {
+            table.getTableHeader().repaint();
+        }
+    }
+
+    public void handleCustomizeColumns() {
+        User user = AuthService.getInstance().getCurrentUser();
+        if (user == null || !user.isAdmin()) {
+            JOptionPane.showMessageDialog(this,
+                    "Access Denied: Only Administrators have permissions to customize catalog column names.",
+                    "Permission Denied",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        ColumnConfigDialog dlg = new ColumnConfigDialog(parentWindow, () -> {
+            updateColumnHeaders();
+            refreshTable();
+        });
+        dlg.setVisible(true);
     }
 
     private void handleRemoveAllStockItems() {
@@ -265,6 +420,7 @@ public class InventoryPanel extends JPanel {
 
         if (confirm == JOptionPane.YES_OPTION) {
             inventoryService.removeAllProducts();
+            updateCategoryFilter();
             refreshTable();
             JOptionPane.showMessageDialog(this, "All stock items have been successfully removed from the application!", "Stock Removed", JOptionPane.INFORMATION_MESSAGE);
         }
@@ -272,17 +428,32 @@ public class InventoryPanel extends JPanel {
 
     private void showProductDialog(Product existing) {
         JDialog dlg = new JDialog(parentWindow, existing == null ? "Add New Electronics Product" : "Edit Product", Dialog.ModalityType.APPLICATION_MODAL);
-        dlg.setSize(500, 600);
+        dlg.setSize(520, 620);
         dlg.setLocationRelativeTo(parentWindow);
         dlg.setLayout(new BorderLayout(10, 10));
         UITheme.applyAppIcon(dlg);
 
-        JPanel form = new JPanel(new GridLayout(11, 2, 8, 8));
-        form.setBorder(new EmptyBorder(15, 15, 15, 15));
+        ShopSettings settings = DataStore.getInstance().getSettings();
+        List<com.electro.model.ColumnConfig> configs = settings.getColumnConfigs();
+        List<com.electro.model.ColumnConfig> customCols = new ArrayList<>();
+        for (com.electro.model.ColumnConfig c : configs) {
+            if (!c.isSystem() && c.isVisible()) {
+                customCols.add(c);
+            }
+        }
+
+        int totalRows = 11 + customCols.size();
+        JPanel form = new JPanel(new GridLayout(totalRows, 2, 8, 8));
+        form.setBorder(new EmptyBorder(15, 15, 10, 15));
 
         JTextField tfName = UITheme.createTextField(15);
         JTextField tfBrand = UITheme.createTextField(15);
-        JTextField tfCategory = UITheme.createTextField(15);
+        JComboBox<String> cbCategory = new JComboBox<>();
+        cbCategory.setEditable(true);
+        cbCategory.setFont(UITheme.FONT_REGULAR);
+        for (String cat : inventoryService.getAllCategories()) {
+            cbCategory.addItem(cat);
+        }
         JTextField tfModel = UITheme.createTextField(15);
         JTextField tfSku = UITheme.createTextField(15);
         JTextField tfCost = UITheme.createTextField(15);
@@ -293,10 +464,19 @@ public class InventoryPanel extends JPanel {
         JTextField tfWarranty = UITheme.createTextField(15);
         JCheckBox chkSerial = new JCheckBox("Requires Serial / IMEI per unit");
 
+        java.util.Map<String, JTextField> customFieldInputs = new java.util.LinkedHashMap<>();
+        for (com.electro.model.ColumnConfig c : customCols) {
+            JTextField tfCustom = UITheme.createTextField(15);
+            if (existing != null) {
+                tfCustom.setText(existing.getCustomField(c.getKey()));
+            }
+            customFieldInputs.put(c.getKey(), tfCustom);
+        }
+
         if (existing != null) {
             tfName.setText(existing.getName());
             tfBrand.setText(existing.getBrand());
-            tfCategory.setText(existing.getCategory());
+            cbCategory.setSelectedItem(existing.getCategory());
             tfModel.setText(existing.getModelNumber());
             tfSku.setText(existing.getSku());
             tfCost.setText(String.valueOf(existing.getCostPrice()));
@@ -314,7 +494,7 @@ public class InventoryPanel extends JPanel {
 
         form.add(new JLabel("Product Name:")); form.add(tfName);
         form.add(new JLabel("Brand:")); form.add(tfBrand);
-        form.add(new JLabel("Category:")); form.add(tfCategory);
+        form.add(new JLabel("Category:")); form.add(cbCategory);
         form.add(new JLabel("Model Number:")); form.add(tfModel);
         form.add(new JLabel("SKU / Barcode:")); form.add(tfSku);
         form.add(new JLabel("Cost Price:")); form.add(tfCost);
@@ -324,11 +504,16 @@ public class InventoryPanel extends JPanel {
         form.add(new JLabel("Initial Stock:")); form.add(tfStock);
         form.add(new JLabel("Warranty (Months):")); form.add(tfWarranty);
 
+        for (com.electro.model.ColumnConfig c : customCols) {
+            form.add(new JLabel(c.getDisplayName() + ":"));
+            form.add(customFieldInputs.get(c.getKey()));
+        }
+
         JPanel checkWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         checkWrap.add(chkSerial);
 
         JPanel centerWrap = new JPanel(new BorderLayout());
-        centerWrap.add(form, BorderLayout.CENTER);
+        centerWrap.add(new JScrollPane(form), BorderLayout.CENTER);
         centerWrap.add(checkWrap, BorderLayout.SOUTH);
         dlg.add(centerWrap, BorderLayout.CENTER);
 
@@ -341,7 +526,12 @@ public class InventoryPanel extends JPanel {
             try {
                 String name = tfName.getText().trim();
                 String brand = tfBrand.getText().trim();
-                String category = tfCategory.getText().trim();
+                String category = "";
+                if (cbCategory.getEditor() != null && cbCategory.getEditor().getItem() != null) {
+                    category = cbCategory.getEditor().getItem().toString().trim();
+                } else if (cbCategory.getSelectedItem() != null) {
+                    category = cbCategory.getSelectedItem().toString().trim();
+                }
                 String model = tfModel.getText().trim();
                 String sku = tfSku.getText().trim();
                 double cost = Double.parseDouble(tfCost.getText().trim());
@@ -371,8 +561,13 @@ public class InventoryPanel extends JPanel {
                 p.setWarrantyMonths(warranty);
                 p.setRequiresSerial(serial);
 
+                for (java.util.Map.Entry<String, JTextField> entry : customFieldInputs.entrySet()) {
+                    p.setCustomField(entry.getKey(), entry.getValue().getText().trim());
+                }
+
                 inventoryService.saveProduct(p);
                 dlg.dispose();
+                updateCategoryFilter();
                 refreshTable();
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(dlg, "Please ensure numeric fields (Price, Cost, Wholesale, Tax, Stock, Warranty) contain valid numbers.", "Format Error", JOptionPane.ERROR_MESSAGE);

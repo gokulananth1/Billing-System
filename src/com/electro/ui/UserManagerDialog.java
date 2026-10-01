@@ -242,7 +242,7 @@ public class UserManagerDialog extends JDialog {
         JTextField tfUser = UITheme.createTextField(15);
         JTextField tfName = UITheme.createTextField(15);
         JPasswordField tfPass = new JPasswordField(15);
-        JComboBox<User.Role> comboRole = new JComboBox<>(User.Role.values());
+        JComboBox<User.Role> comboRole = new JComboBox<>(new User.Role[]{User.Role.STORE_OWNER, User.Role.CASHIER});
         comboRole.setRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
@@ -278,6 +278,11 @@ public class UserManagerDialog extends JDialog {
 
                 if (u.isEmpty() || p.isEmpty()) {
                     JOptionPane.showMessageDialog(dlg, "Username and password are required.", "Error", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (r == User.Role.ADMIN) {
+                    JOptionPane.showMessageDialog(dlg, "Restricted: Creating additional Administrator accounts is strictly forbidden.", "Action Restricted", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
@@ -323,6 +328,12 @@ public class UserManagerDialog extends JDialog {
         }
 
         String username = (String) userTableModel.getValueAt(row, 0);
+        User target = authService.getUserByUsername(username);
+        if (target != null && target.isAdmin()) {
+            JOptionPane.showMessageDialog(this, "Restricted: User accounts with the ADMIN role cannot be deleted.", "Action Restricted", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete user account '" + username + "'?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             try {
